@@ -61,7 +61,7 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
     wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
 
     kum_anim_start(&toplevel->anim, ANIM_FOCUSING, 0.0f, 1.0f,
-        KUM_ANIM_FOCUS_MS);
+        server->cfg.anim_focus_ms);
     kum_border_update(toplevel, true);
     server->focused = toplevel;
 
@@ -71,60 +71,124 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
             kb->keycodes, kb->num_keycodes, &kb->modifiers);
 }
 
-static void toplevel_center_on_output(struct kum_toplevel *tl)
+static void toplevel_center_on_output(struct kum_toplevel *tl,
+    struct kum_output *output)
 {
-    struct kum_output *output;
-    wl_list_for_each(output, &tl->server->outputs, link) {
-        struct wlr_box obox;
-        wlr_output_layout_get_box(tl->server->output_layout,
-            output->wlr_output, &obox);
+    if (!output)
+        return;
 
-        struct wlr_box geo;
-        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    struct wlr_box geo;
+    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
 
-        int x = obox.x + (obox.width  - geo.width)  / 2;
-        int y = obox.y + (obox.height - geo.height) / 2;
-        wlr_scene_node_set_position(&tl->scene_tree->node, x, y);
-        break;
+    struct wlr_box area = output->usable_area;
+    int x = area.x + (area.width  - geo.width)  / 2;
+    int y = area.y + (area.height - geo.height) / 2;
+    wlr_scene_node_set_position(&tl->scene_tree->node, x, y);
+}
+
+static struct kum_output *output_for_toplevel(struct kum_toplevel *tl)
+{
+    struct kum_output *o;
+    wl_list_for_each(o, &tl->server->outputs, link) {
+        if (o->active_workspace == tl->workspace)
+            return o;
     }
+    return NULL;
 }
 
 static void toplevel_map(struct wl_listener *listener, void *data)
 {
-    struct kum_toplevel *tl = wl_container_of(listener, tl, map);
-    toplevel_center_on_output(tl);
+    struct kum_toplevel *tl     = wl_container_of(listener, tl, map);
+    struct kum_server   *server = tl->server;
+    struct kum_output   *output = output_for_toplevel(tl);
+    struct kum_workspace *ws    = &server->workspaces[tl->workspace];
+
     kum_border_create(tl);
     kum_border_update(tl, false);
-    kum_anim_start(&tl->anim, ANIM_OPENING, 0.0f, 1.0f, KUM_ANIM_OPEN_MS);
+    kum_shadow_create(tl);
+
+    if (ws->layout == LAYOUT_TILE && !tl->floating) {
+        kum_workspace_arrange(server, output, tl->workspace);
+    } else {
+        toplevel_center_on_output(tl, output);
+    }
+
+    if (server->cfg.animations)
+        kum_anim_start(&tl->anim, ANIM_OPENING, 0.0f, 1.0f,
+            server->cfg.anim_open_ms);
+
     kum_focus_toplevel(tl, tl->xdg_toplevel->base->surface);
 }
 
 static void toplevel_unmap(struct wl_listener *listener, void *data)
 {
-    struct kum_toplevel *tl = wl_container_of(listener, tl, unmap);
-    if (tl->server->focused == tl)
-        tl->server->focused = NULL;
-    kum_anim_start(&tl->anim, ANIM_CLOSING, 1.0f, 0.0f, KUM_ANIM_CLOSE_MS);
+    struct kum_toplevel *tl     = wl_container_of(listener, tl, unmap);
+    struct kum_server   *server = tl->server;
+    struct kum_output   *output = output_for_toplevel(tl);
+
+    if (server->focused == tl)
+        server->focused = NULL;
+
+    if (server->cfg.animations)
+        kum_anim_start(&tl->anim, ANIM_CLOSING, 1.0f, 0.0f,
+            server->cfg.anim_close_ms);
+
     kum_border_destroy(tl);
+    kum_shadow_destroy(tl);
+
+    if (server->workspaces[tl->workspace].layout == LAYOUT_TILE && output)
+        kum_workspace_arrange(server, output, tl->workspace);
+}
+
+static void toplevel_commit(struct wl_listener *listener, void *data)
+{
+    struct kum_toplevel  *tl = wl_container_of(listener, tl, commit);
+    struct kum_workspace *ws = &tl->server->workspaces[tl->workspace];
+
+    if (ws->layout == LAYOUT_TILE && !tl->floating)
+        kum_border_update(tl, tl == tl->server->focused);
+
+    if (tl->shadow_buf) {
+        struct wlr_box geo;
+        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+        if (geo.width  != tl->last_geo.width ||
+            geo.height != tl->last_geo.height) {
+            kum_shadow_update(tl);
+            tl->last_geo = geo;
+        }
+    }
 }
 
 static void toplevel_destroy(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, destroy);
+    kum_shadow_destroy(tl);
     wl_list_remove(&tl->map.link);
     wl_list_remove(&tl->unmap.link);
+    wl_list_remove(&tl->commit.link);
     wl_list_remove(&tl->destroy.link);
     wl_list_remove(&tl->request_move.link);
     wl_list_remove(&tl->request_resize.link);
     wl_list_remove(&tl->request_maximize.link);
     wl_list_remove(&tl->request_fullscreen.link);
     wl_list_remove(&tl->set_title.link);
+    wl_list_remove(&tl->workspace_link);
     wl_list_remove(&tl->link);
     free(tl);
 }
 
 static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
 {
+    struct kum_workspace *ws = &tl->server->workspaces[tl->workspace];
+    if (ws->layout == LAYOUT_TILE && !tl->floating) {
+        tl->floating = true;
+        struct wlr_box geo;
+        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+        tl->saved_geom = geo;
+        struct kum_output *output = output_for_toplevel(tl);
+        kum_workspace_arrange(tl->server, output, tl->workspace);
+    }
+
     tl->grabbed      = true;
     tl->resize_edges = edges;
     tl->grab_x       = (int)tl->server->cursor->x;
@@ -135,7 +199,6 @@ static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
 
     int nx, ny;
     wlr_scene_node_coords(&tl->scene_tree->node, &nx, &ny);
-
     tl->grab_geobox.x      = nx;
     tl->grab_geobox.y      = ny;
     tl->grab_geobox.width  = geo.width;
@@ -159,26 +222,52 @@ static void request_maximize(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, request_maximize);
     if (!tl->xdg_toplevel->requested.maximized) {
+        if (tl->saved_geom.width > 0) {
+            wlr_xdg_toplevel_set_size(tl->xdg_toplevel,
+                tl->saved_geom.width, tl->saved_geom.height);
+        }
         wlr_xdg_toplevel_set_maximized(tl->xdg_toplevel, false);
         return;
     }
-    struct kum_output *o;
-    wl_list_for_each(o, &tl->server->outputs, link) {
-        struct wlr_box box;
-        wlr_output_layout_get_box(tl->server->output_layout,
-            o->wlr_output, &box);
-        wlr_xdg_toplevel_set_size(tl->xdg_toplevel, box.width, box.height);
-        wlr_scene_node_set_position(&tl->scene_tree->node, box.x, box.y);
-        break;
-    }
+    struct kum_output *output = output_for_toplevel(tl);
+    if (!output)
+        return;
+    struct wlr_box geo;
+    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    tl->saved_geom = geo;
+    struct wlr_box area = output->usable_area;
+    wlr_xdg_toplevel_set_size(tl->xdg_toplevel, area.width, area.height);
+    wlr_scene_node_set_position(&tl->scene_tree->node, area.x, area.y);
     wlr_xdg_toplevel_set_maximized(tl->xdg_toplevel, true);
 }
 
 static void request_fullscreen(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, request_fullscreen);
-    wlr_xdg_toplevel_set_fullscreen(tl->xdg_toplevel,
-        tl->xdg_toplevel->requested.fullscreen);
+    bool fs = tl->xdg_toplevel->requested.fullscreen;
+
+    if (fs) {
+        struct kum_output *output = output_for_toplevel(tl);
+        if (output) {
+            struct wlr_box geo;
+            wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+            tl->saved_geom = geo;
+            struct wlr_box full;
+            wlr_output_layout_get_box(tl->server->output_layout,
+                output->wlr_output, &full);
+            wlr_xdg_toplevel_set_size(tl->xdg_toplevel,
+                full.width, full.height);
+            wlr_scene_node_set_position(&tl->scene_tree->node,
+                full.x, full.y);
+        }
+    } else {
+        if (tl->saved_geom.width > 0) {
+            wlr_xdg_toplevel_set_size(tl->xdg_toplevel,
+                tl->saved_geom.width, tl->saved_geom.height);
+        }
+    }
+
+    wlr_xdg_toplevel_set_fullscreen(tl->xdg_toplevel, fs);
 }
 
 static void set_title(struct wl_listener *listener, void *data)
@@ -190,28 +279,37 @@ static void set_title(struct wl_listener *listener, void *data)
 
 void kum_new_xdg_toplevel(struct wl_listener *listener, void *data)
 {
-    struct kum_server       *server = wl_container_of(listener, server, new_xdg_toplevel);
+    struct kum_server       *server =
+        wl_container_of(listener, server, new_xdg_toplevel);
     struct wlr_xdg_toplevel *wlr_tl = data;
+
+    struct kum_output *output = kum_output_focused(server);
+    int ws = output ? output->active_workspace : 0;
 
     struct kum_toplevel *tl = calloc(1, sizeof(*tl));
     tl->server       = server;
     tl->xdg_toplevel = wlr_tl;
-    tl->scene_tree   = wlr_scene_xdg_surface_create(&server->scene->tree,
-        wlr_tl->base);
+    tl->workspace    = ws;
+    tl->floating     = false;
+
+    tl->scene_tree = wlr_scene_xdg_surface_create(
+        server->workspaces[ws].scene_tree, wlr_tl->base);
     tl->scene_tree->node.data = tl;
     wlr_tl->base->data        = tl->scene_tree;
 
-    tl->map.notify               = toplevel_map;
-    tl->unmap.notify             = toplevel_unmap;
-    tl->destroy.notify           = toplevel_destroy;
-    tl->request_move.notify      = request_move;
-    tl->request_resize.notify    = request_resize;
-    tl->request_maximize.notify  = request_maximize;
+    tl->map.notify                = toplevel_map;
+    tl->unmap.notify              = toplevel_unmap;
+    tl->commit.notify             = toplevel_commit;
+    tl->destroy.notify            = toplevel_destroy;
+    tl->request_move.notify       = request_move;
+    tl->request_resize.notify     = request_resize;
+    tl->request_maximize.notify   = request_maximize;
     tl->request_fullscreen.notify = request_fullscreen;
-    tl->set_title.notify         = set_title;
+    tl->set_title.notify          = set_title;
 
     wl_signal_add(&wlr_tl->base->surface->events.map,    &tl->map);
     wl_signal_add(&wlr_tl->base->surface->events.unmap,  &tl->unmap);
+    wl_signal_add(&wlr_tl->base->surface->events.commit, &tl->commit);
     wl_signal_add(&wlr_tl->events.destroy,               &tl->destroy);
     wl_signal_add(&wlr_tl->events.request_move,          &tl->request_move);
     wl_signal_add(&wlr_tl->events.request_resize,        &tl->request_resize);
@@ -220,6 +318,7 @@ void kum_new_xdg_toplevel(struct wl_listener *listener, void *data)
     wl_signal_add(&wlr_tl->events.set_title,             &tl->set_title);
 
     wl_list_insert(&server->toplevels, &tl->link);
+    wl_list_insert(&server->workspaces[ws].toplevels, &tl->workspace_link);
 }
 
 static void popup_commit(struct wl_listener *listener, void *data)

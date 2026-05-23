@@ -23,6 +23,44 @@ static void action_close_focused(struct kum_server *server, void *data)
     wlr_xdg_toplevel_send_close(server->focused->xdg_toplevel);
 }
 
+static void action_toggle_floating(struct kum_server *server, void *data)
+{
+    if (!server->focused)
+        return;
+
+    struct kum_toplevel *tl = server->focused;
+    struct kum_workspace *ws = &server->workspaces[tl->workspace];
+
+    if (ws->layout != LAYOUT_TILE)
+        return;
+
+    tl->floating = !tl->floating;
+
+    struct kum_output *output = kum_output_focused(server);
+    kum_workspace_arrange(server, output, tl->workspace);
+}
+
+static void action_toggle_layout(struct kum_server *server, void *data)
+{
+    struct kum_output *output = kum_output_focused(server);
+    kum_workspace_toggle_layout(server, output);
+}
+
+static void action_switch_workspace(struct kum_server *server, void *data)
+{
+    int index = (int)(intptr_t)data;
+    struct kum_output *output = kum_output_focused(server);
+    kum_workspace_switch(server, output, index);
+}
+
+static void action_move_to_workspace(struct kum_server *server, void *data)
+{
+    if (!server->focused)
+        return;
+    int index = (int)(intptr_t)data;
+    kum_workspace_move_toplevel(server, server->focused, index);
+}
+
 void kum_keybind_register(struct kum_server *server, uint32_t modifiers,
                           xkb_keysym_t sym,
                           void (*action)(struct kum_server *, void *),
@@ -51,12 +89,24 @@ bool kum_keybind_handle(struct kum_server *server, uint32_t modifiers,
 
 void kum_keybind_setup_defaults(struct kum_server *server)
 {
-    uint32_t mod = KUM_MOD_KEY;
+    uint32_t mod   = KUM_MOD_KEY;
+    uint32_t mod_s = KUM_MOD_KEY | WLR_MODIFIER_SHIFT;
 
-    kum_keybind_register(server, mod, XKB_KEY_q,
-        action_quit, NULL);
-    kum_keybind_register(server, mod, XKB_KEY_Tab,
-        action_cycle_focus, NULL);
-    kum_keybind_register(server, mod | WLR_MODIFIER_SHIFT, XKB_KEY_c,
-        action_close_focused, NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_q,     action_quit,             NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_Tab,   action_cycle_focus,      NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_c,     action_close_focused,    NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_t,     action_toggle_layout,    NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_space, action_toggle_floating,  NULL);
+
+    static const xkb_keysym_t ws_keys[KUM_WORKSPACE_COUNT] = {
+        XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5,
+        XKB_KEY_6, XKB_KEY_7, XKB_KEY_8, XKB_KEY_9,
+    };
+
+    for (int i = 0; i < KUM_WORKSPACE_COUNT; i++) {
+        kum_keybind_register(server, mod,   ws_keys[i],
+            action_switch_workspace,  (void *)(intptr_t)i);
+        kum_keybind_register(server, mod_s, ws_keys[i],
+            action_move_to_workspace, (void *)(intptr_t)i);
+    }
 }

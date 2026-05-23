@@ -1,8 +1,73 @@
 #include "kumde.h"
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+static struct kum_server *g_server = NULL;
+
+static void handle_sighup(int sig)
+{
+    (void)sig;
+    if (g_server)
+        kum_server_reload_config(g_server);
+}
+
+void kum_server_reload_config(struct kum_server *server)
+{
+    struct kum_runtime_config fresh;
+    kum_config_defaults(&fresh);
+
+    const char *xdg  = getenv("XDG_CONFIG_HOME");
+    char path[512];
+    if (xdg)
+        snprintf(path, sizeof(path), "%s/kumde/kumde.conf", xdg);
+    else {
+        const char *home = getenv("HOME");
+        snprintf(path, sizeof(path), "%s/.config/kumde/kumde.conf",
+            home ? home : "");
+    }
+
+    kum_config_load(&fresh, path);
+
+    server->cfg.border_width     = fresh.border_width;
+    server->cfg.border_active[0] = fresh.border_active[0];
+    server->cfg.border_active[1] = fresh.border_active[1];
+    server->cfg.border_active[2] = fresh.border_active[2];
+    server->cfg.border_inactive[0] = fresh.border_inactive[0];
+    server->cfg.border_inactive[1] = fresh.border_inactive[1];
+    server->cfg.border_inactive[2] = fresh.border_inactive[2];
+    server->cfg.anim_open_ms     = fresh.anim_open_ms;
+    server->cfg.anim_close_ms    = fresh.anim_close_ms;
+    server->cfg.anim_focus_ms    = fresh.anim_focus_ms;
+    server->cfg.animations       = fresh.animations;
+    server->cfg.gap              = fresh.gap;
+    server->cfg.master_ratio     = fresh.master_ratio;
+    server->cfg.corner_radius    = fresh.corner_radius;
+    server->cfg.shadow_radius    = fresh.shadow_radius;
+    server->cfg.shadow_alpha     = fresh.shadow_alpha;
+    server->cfg.shadow_offset_x  = fresh.shadow_offset_x;
+    server->cfg.shadow_offset_y  = fresh.shadow_offset_y;
+    server->cfg.shadows          = fresh.shadows;
+    server->cfg.rounded_corners  = fresh.rounded_corners;
+
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &server->toplevels, link) {
+        kum_border_update(tl, tl == server->focused);
+        kum_shadow_destroy(tl);
+        if (tl->xdg_toplevel->base->surface->mapped)
+            kum_shadow_create(tl);
+    }
+
+    struct kum_output *output;
+    wl_list_for_each(output, &server->outputs, link) {
+        if (server->workspaces[output->active_workspace].layout == LAYOUT_TILE)
+            kum_workspace_arrange(server, output, output->active_workspace);
+    }
+
+    wlr_log(WLR_INFO, "config reloaded");
+}
 
 static void server_setup_globals(struct kum_server *server)
 {
@@ -50,7 +115,8 @@ static void server_setup_cursor(struct kum_server *server)
 {
     server->cursor = wlr_cursor_create();
     wlr_cursor_attach_output_layout(server->cursor, server->output_layout);
-    server->cursor_mgr = wlr_xcursor_manager_create(NULL, KUM_CURSOR_SIZE);
+    server->cursor_mgr = wlr_xcursor_manager_create(NULL,
+        server->cfg.cursor_size);
 
     server->cursor_motion.notify = kum_cursor_motion;
     wl_signal_add(&server->cursor->events.motion, &server->cursor_motion);
@@ -88,10 +154,27 @@ static void server_setup_input(struct kum_server *server)
     kum_keybind_setup_defaults(server);
 }
 
+static const char *config_path(void)
+{
+    static char path[512];
+    const char *xdg = getenv("XDG_CONFIG_HOME");
+    if (xdg)
+        snprintf(path, sizeof(path), "%s/kumde/kumde.conf", xdg);
+    else {
+        const char *home = getenv("HOME");
+        snprintf(path, sizeof(path), "%s/.config/kumde/kumde.conf",
+            home ? home : "");
+    }
+    return path;
+}
+
 void kum_server_init(struct kum_server *server)
 {
     memset(server, 0, sizeof(*server));
     wlr_log_init(WLR_INFO, NULL);
+
+    kum_config_defaults(&server->cfg);
+    kum_config_load(&server->cfg, config_path());
 
     server->display = wl_display_create();
     if (!server->display)
@@ -118,13 +201,23 @@ void kum_server_init(struct kum_server *server)
 
     wl_list_init(&server->toplevels);
 
+    kum_workspace_init(server);
     server_setup_globals(server);
     server_setup_outputs(server);
     server_setup_shell(server);
     server_setup_cursor(server);
     server_setup_input(server);
+    kum_ipc_init(server);
 
-    wlr_log(WLR_INFO, "kumde %s initialised", KUM_VERSION);
+#ifdef KUM_XWAYLAND
+    if (server->cfg.xwayland)
+        kum_xwayland_init(server);
+#endif
+
+    g_server = server;
+    signal(SIGHUP, handle_sighup);
+
+    wlr_log(WLR_INFO, "kumde %s ready", KUM_VERSION);
     return;
 
 fatal:
@@ -132,12 +225,13 @@ fatal:
     exit(1);
 }
 
-static void spawn_terminal(void)
+static void spawn_terminal(const char *preferred)
 {
     if (fork() != 0)
         return;
-
     setsid();
+    if (preferred && preferred[0])
+        execlp(preferred, preferred, NULL);
     execlp("foot",            "foot",            NULL);
     execlp("alacritty",       "alacritty",       NULL);
     execlp("kitty",           "kitty",           NULL);
@@ -161,12 +255,20 @@ void kum_server_run(struct kum_server *server)
     setenv("WAYLAND_DISPLAY", socket, 1);
     wlr_log(WLR_INFO, "WAYLAND_DISPLAY=%s", socket);
 
-    spawn_terminal();
+    spawn_terminal(server->cfg.terminal);
     wl_display_run(server->display);
 }
 
 void kum_server_finish(struct kum_server *server)
 {
+    signal(SIGHUP, SIG_DFL);
+    kum_ipc_finish(server);
+
+#ifdef KUM_XWAYLAND
+    if (server->cfg.xwayland)
+        kum_xwayland_finish(server);
+#endif
+
     wl_display_destroy_clients(server->display);
     wlr_scene_node_destroy(&server->scene->tree.node);
     wlr_xcursor_manager_destroy(server->cursor_mgr);

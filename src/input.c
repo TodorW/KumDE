@@ -97,6 +97,44 @@ void kum_new_input(struct wl_listener *listener, void *data)
     wlr_seat_set_capabilities(server->seat, caps);
 }
 
+static const char *cursor_name_for_edges(enum wlr_edges edges)
+{
+    switch (edges) {
+    case WLR_EDGE_TOP:                             return "n-resize";
+    case WLR_EDGE_BOTTOM:                          return "s-resize";
+    case WLR_EDGE_LEFT:                            return "w-resize";
+    case WLR_EDGE_RIGHT:                           return "e-resize";
+    case WLR_EDGE_TOP    | WLR_EDGE_LEFT:          return "nw-resize";
+    case WLR_EDGE_TOP    | WLR_EDGE_RIGHT:         return "ne-resize";
+    case WLR_EDGE_BOTTOM | WLR_EDGE_LEFT:          return "sw-resize";
+    case WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT:         return "se-resize";
+    default:                                       return "default";
+    }
+}
+
+static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
+    double lx, double ly)
+{
+    int nx, ny;
+    wlr_scene_node_coords(&tl->scene_tree->node, &nx, &ny);
+
+    struct wlr_box geo;
+    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+
+    int edge_px = 8;
+    int rx = (int)lx - nx;
+    int ry = (int)ly - ny;
+    int w  = geo.width;
+    int h  = geo.height;
+
+    enum wlr_edges edges = WLR_EDGE_NONE;
+    if (rx < edge_px)          edges |= WLR_EDGE_LEFT;
+    else if (rx > w - edge_px) edges |= WLR_EDGE_RIGHT;
+    if (ry < edge_px)          edges |= WLR_EDGE_TOP;
+    else if (ry > h - edge_px) edges |= WLR_EDGE_BOTTOM;
+    return edges;
+}
+
 static void process_cursor_motion(struct kum_server *server, uint32_t time)
 {
     struct kum_toplevel *grabbed = NULL;
@@ -113,10 +151,14 @@ static void process_cursor_motion(struct kum_server *server, uint32_t time)
         double dy = server->cursor->y - grabbed->grab_y;
 
         if (grabbed->resize_edges == WLR_EDGE_NONE) {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "grabbing");
             wlr_scene_node_set_position(&grabbed->scene_tree->node,
                 grabbed->grab_geobox.x + (int)dx,
                 grabbed->grab_geobox.y + (int)dy);
         } else {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
+                cursor_name_for_edges(grabbed->resize_edges));
+
             int new_x = grabbed->grab_geobox.x;
             int new_y = grabbed->grab_geobox.y;
             int new_w = grabbed->grab_geobox.width;
@@ -151,8 +193,21 @@ static void process_cursor_motion(struct kum_server *server, uint32_t time)
     struct kum_toplevel *under = kum_toplevel_at(server,
         server->cursor->x, server->cursor->y, &surface, &sx, &sy);
 
-    if (!under)
+    if (under) {
+        enum wlr_edges edges = edges_at_point(under,
+            server->cursor->x, server->cursor->y);
+        if (edges != WLR_EDGE_NONE) {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
+                cursor_name_for_edges(edges));
+        } else {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
+        }
+
+        if (server->cfg.focus_follows_mouse && under != server->focused)
+            kum_focus_toplevel(under, surface);
+    } else {
         wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
+    }
 
     if (surface) {
         wlr_seat_pointer_notify_enter(server->seat, surface, sx, sy);

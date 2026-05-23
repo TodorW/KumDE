@@ -27,11 +27,17 @@
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
+#ifdef KUM_XWAYLAND
+#include <wlr/xwayland.h>
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
 
 #include "config.h"
+
+#define KUM_WORKSPACE_COUNT 9
 
 typedef enum {
     ANIM_NONE = 0,
@@ -39,6 +45,11 @@ typedef enum {
     ANIM_CLOSING,
     ANIM_FOCUSING,
 } kum_anim_type;
+
+typedef enum {
+    LAYOUT_FLOATING = 0,
+    LAYOUT_TILE,
+} kum_layout_mode;
 
 typedef struct {
     kum_anim_type   type;
@@ -49,6 +60,54 @@ typedef struct {
     float           current;
     bool            done;
 } kum_animation;
+
+struct kum_runtime_config {
+    char    terminal[256];
+    int     border_width;
+    float   border_active[3];
+    float   border_inactive[3];
+    float   anim_open_ms;
+    float   anim_close_ms;
+    float   anim_focus_ms;
+    int     cursor_size;
+    bool    xwayland;
+    bool    animations;
+    int     gap;
+    float   master_ratio;
+    int     corner_radius;
+    int     shadow_radius;
+    float   shadow_alpha;
+    int     shadow_offset_x;
+    int     shadow_offset_y;
+    bool    shadows;
+    bool    rounded_corners;
+    bool    focus_follows_mouse;
+};
+
+struct kum_workspace {
+    int              index;
+    kum_layout_mode  layout;
+    struct wl_list   toplevels;
+    struct wlr_scene_tree *scene_tree;
+};
+
+struct kum_output {
+    struct wl_list           link;
+    struct kum_server       *server;
+    struct wlr_output       *wlr_output;
+    struct wlr_scene_output *scene_output;
+    struct wlr_box           usable_area;
+    int                      active_workspace;
+    struct wl_listener       frame;
+    struct wl_listener       request_state;
+    struct wl_listener       destroy;
+};
+
+struct kum_ipc {
+    int              fd;
+    char             path[256];
+    struct wl_event_source *source;
+};
 
 struct kum_server {
     struct wl_display               *display;
@@ -68,6 +127,11 @@ struct kum_server {
     struct wl_list  toplevels;
     struct wl_list  keyboards;
     struct wl_list  keybinds;
+    struct wl_list  ipc_clients;
+
+    struct kum_workspace  workspaces[KUM_WORKSPACE_COUNT];
+    struct kum_ipc        ipc;
+    struct kum_runtime_config cfg;
 
     struct wl_listener  new_output;
     struct wl_listener  new_xdg_toplevel;
@@ -83,32 +147,34 @@ struct kum_server {
     struct wl_listener  request_set_selection;
 
     struct kum_toplevel *focused;
-};
 
-struct kum_output {
-    struct wl_list           link;
-    struct kum_server       *server;
-    struct wlr_output       *wlr_output;
-    struct wlr_scene_output *scene_output;
-    struct wl_listener       frame;
-    struct wl_listener       request_state;
-    struct wl_listener       destroy;
+#ifdef KUM_XWAYLAND
+    struct wlr_xwayland      *xwayland;
+    struct wl_listener        xwayland_ready;
+    struct wl_listener        new_xwayland_surface;
+#endif
 };
 
 struct kum_toplevel {
     struct wl_list           link;
+    struct wl_list           workspace_link;
     struct kum_server       *server;
     struct wlr_xdg_toplevel *xdg_toplevel;
     struct wlr_scene_tree   *scene_tree;
     struct wlr_scene_rect   *border[4];
+    struct wlr_scene_buffer *shadow_buf;
     kum_animation            anim;
     float                    opacity;
     float                    scale;
     bool                     grabbed;
+    bool                     floating;
+    int                      workspace;
     enum wlr_edges           resize_edges;
     int                      grab_x;
     int                      grab_y;
     struct wlr_box           grab_geobox;
+    struct wlr_box           saved_geom;
+    struct wlr_box           last_geo;
     struct wl_listener       map;
     struct wl_listener       unmap;
     struct wl_listener       destroy;
@@ -117,6 +183,7 @@ struct kum_toplevel {
     struct wl_listener       request_maximize;
     struct wl_listener       request_fullscreen;
     struct wl_listener       set_title;
+    struct wl_listener       commit;
 };
 
 struct kum_keyboard {
@@ -142,11 +209,45 @@ struct kum_keybind {
     void           *data;
 };
 
+struct kum_ipc_client {
+    struct wl_list          link;
+    struct kum_server      *server;
+    int                     fd;
+    struct wl_event_source *source;
+};
+
+#ifdef KUM_XWAYLAND
+struct kum_xwayland_surface {
+    struct wl_list                link;
+    struct kum_server            *server;
+    struct wlr_xwayland_surface  *xwayland_surface;
+    struct wlr_scene_tree        *scene_tree;
+    struct wlr_scene_rect        *border[4];
+    kum_animation                 anim;
+    int                           workspace;
+    bool                          grabbed;
+    enum wlr_edges                resize_edges;
+    int                           grab_x;
+    int                           grab_y;
+    struct wlr_box                grab_geobox;
+    struct wl_listener            map;
+    struct wl_listener            unmap;
+    struct wl_listener            destroy;
+    struct wl_listener            request_move;
+    struct wl_listener            request_resize;
+    struct wl_listener            request_maximize;
+    struct wl_listener            request_fullscreen;
+    struct wl_listener            set_title;
+};
+#endif
+
 void kum_server_init(struct kum_server *server);
 void kum_server_run(struct kum_server *server);
 void kum_server_finish(struct kum_server *server);
+void kum_server_reload_config(struct kum_server *server);
 
 void kum_new_output(struct wl_listener *listener, void *data);
+struct kum_output *kum_output_focused(struct kum_server *server);
 
 void kum_new_xdg_toplevel(struct wl_listener *listener, void *data);
 void kum_new_xdg_popup(struct wl_listener *listener, void *data);
@@ -176,6 +277,10 @@ void kum_border_create(struct kum_toplevel *toplevel);
 void kum_border_update(struct kum_toplevel *toplevel, bool focused);
 void kum_border_destroy(struct kum_toplevel *toplevel);
 
+void kum_shadow_create(struct kum_toplevel *toplevel);
+void kum_shadow_update(struct kum_toplevel *toplevel);
+void kum_shadow_destroy(struct kum_toplevel *toplevel);
+
 void kum_new_layer_surface(struct wl_listener *listener, void *data);
 
 void kum_keybind_register(struct kum_server *server, uint32_t modifiers,
@@ -185,5 +290,27 @@ void kum_keybind_register(struct kum_server *server, uint32_t modifiers,
 bool kum_keybind_handle(struct kum_server *server, uint32_t modifiers,
                         xkb_keysym_t sym);
 void kum_keybind_setup_defaults(struct kum_server *server);
+
+bool kum_config_load(struct kum_runtime_config *cfg, const char *path);
+void kum_config_defaults(struct kum_runtime_config *cfg);
+
+void kum_workspace_init(struct kum_server *server);
+void kum_workspace_switch(struct kum_server *server,
+    struct kum_output *output, int index);
+void kum_workspace_move_toplevel(struct kum_server *server,
+    struct kum_toplevel *tl, int index);
+void kum_workspace_arrange(struct kum_server *server,
+    struct kum_output *output, int ws_index);
+void kum_workspace_toggle_layout(struct kum_server *server,
+    struct kum_output *output);
+
+void kum_ipc_init(struct kum_server *server);
+void kum_ipc_finish(struct kum_server *server);
+void kum_ipc_broadcast(struct kum_server *server, const char *msg, int len);
+
+#ifdef KUM_XWAYLAND
+void kum_xwayland_init(struct kum_server *server);
+void kum_xwayland_finish(struct kum_server *server);
+#endif
 
 #endif

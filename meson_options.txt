@@ -1,0 +1,5 @@
+option('xwayland',
+  type        : 'feature',
+  value       : 'auto',
+  description : 'XWayland support for running X11 applications',
+)

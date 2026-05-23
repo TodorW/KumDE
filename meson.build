@@ -1,5 +1,5 @@
 project('kumde', 'c',
-  version : '0.1.0',
+  version : '0.5.0',
   default_options : [
     'c_std=c11',
     'warning_level=2',
@@ -37,7 +37,20 @@ sources = files(
   'src/border.c',
   'src/anim.c',
   'src/layer.c',
+  'src/workspace.c',
+  'src/conf.c',
+  'src/shadow.c',
+  'src/ipc.c',
 )
+
+xwayland_dep = dependency('xcb', required : get_option('xwayland'))
+xwayland     = get_option('xwayland').enabled() or \
+               (get_option('xwayland').auto() and xwayland_dep.found())
+
+if xwayland
+  sources += files('src/xwayland.c')
+  add_project_arguments('-DKUM_XWAYLAND', language : 'c')
+endif
 
 executable('kumde',
   sources,
@@ -45,3 +58,16 @@ executable('kumde',
   dependencies : [wlroots, wayland_server, xkbcommon, libm],
   install : true,
 )
+
+subdir('kumbar')
+subdir('kumlauncher')
+subdir('kumwall')
+subdir('kumlock')
+subdir('tools')
+
+summary({
+  'version'    : meson.project_version(),
+  'wlroots'    : wlroots.version(),
+  'xwayland'   : xwayland,
+  'workspaces' : 9,
+}, section : 'kumde')

@@ -1,7 +1,7 @@
 #ifndef KUMDE_CONFIG_H
 #define KUMDE_CONFIG_H
 
-#define KUM_VERSION             "0.1.0"
+#define KUM_VERSION             "0.4.0"
 
 #define KUM_BORDER_WIDTH        3
 #define KUM_BORDER_ACTIVE_R     0.45f
@@ -25,5 +25,16 @@
 #define KUM_RESIZE_MIN_H        80
 
 #define KUM_MOD_KEY             WLR_MODIFIER_LOGO
+
+#define KUM_GAP                 8
+#define KUM_MASTER_RATIO        0.55f
+
+#define KUM_CORNER_RADIUS       8
+#define KUM_SHADOW_RADIUS       18
+#define KUM_SHADOW_ALPHA        0.45f
+#define KUM_SHADOW_OFFSET_X     0
+#define KUM_SHADOW_OFFSET_Y     4
+
+#define KUM_IPC_SOCKET_NAME     "kumde-ipc"
 
 #endif
