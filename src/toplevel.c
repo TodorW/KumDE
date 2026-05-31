@@ -65,6 +65,22 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
     kum_border_update(toplevel, true);
     server->focused = toplevel;
 
+    {
+        struct kum_output *_o;
+        wl_list_for_each(_o, &server->outputs, link) {
+            if (_o->active_workspace == toplevel->workspace) {
+                const char *_title = toplevel->xdg_toplevel->title
+                    ? toplevel->xdg_toplevel->title : "";
+                char _msg[400];
+                int _n = snprintf(_msg, sizeof(_msg),
+                    "{"event":"window_title","output":"%s","title":"%s"}\n",
+                    _o->wlr_output->name, _title);
+                kum_ipc_broadcast(server, _msg, _n);
+                break;
+            }
+        }
+    }
+
     struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
     if (kb)
         wlr_seat_keyboard_notify_enter(seat, surface,
@@ -106,6 +122,7 @@ static void toplevel_map(struct wl_listener *listener, void *data)
     kum_border_create(tl);
     kum_border_update(tl, false);
     kum_shadow_create(tl);
+    kum_corners_apply(tl);
 
     if (ws->layout == LAYOUT_TILE && !tl->floating) {
         kum_workspace_arrange(server, output, tl->workspace);
@@ -117,7 +134,9 @@ static void toplevel_map(struct wl_listener *listener, void *data)
         kum_anim_start(&tl->anim, ANIM_OPENING, 0.0f, 1.0f,
             server->cfg.anim_open_ms);
 
+    kum_rules_apply(tl->server, tl);
     kum_focus_toplevel(tl, tl->xdg_toplevel->base->surface);
+    kum_ipc_broadcast_occupancy(tl->server);
 }
 
 static void toplevel_unmap(struct wl_listener *listener, void *data)
@@ -135,6 +154,8 @@ static void toplevel_unmap(struct wl_listener *listener, void *data)
 
     kum_border_destroy(tl);
     kum_shadow_destroy(tl);
+    kum_corners_destroy(tl);
+    kum_ipc_broadcast_occupancy(tl->server);
 
     if (server->workspaces[tl->workspace].layout == LAYOUT_TILE && output)
         kum_workspace_arrange(server, output, tl->workspace);
@@ -154,6 +175,7 @@ static void toplevel_commit(struct wl_listener *listener, void *data)
         if (geo.width  != tl->last_geo.width ||
             geo.height != tl->last_geo.height) {
             kum_shadow_update(tl);
+            kum_corners_apply(tl);
             tl->last_geo = geo;
         }
     }
@@ -163,6 +185,7 @@ static void toplevel_destroy(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, destroy);
     kum_shadow_destroy(tl);
+    kum_corners_destroy(tl);
     wl_list_remove(&tl->map.link);
     wl_list_remove(&tl->unmap.link);
     wl_list_remove(&tl->commit.link);

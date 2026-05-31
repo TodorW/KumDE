@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KumLock
+Comment=Screen locker
+Exec=kumlock
+NoDisplay=false
+Categories=System;
+Keywords=lock;screen;security;

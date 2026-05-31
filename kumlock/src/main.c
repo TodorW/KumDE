@@ -1,11 +1,12 @@
 #include <cairo/cairo.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <security/pam_appl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-client-protocol.h>
@@ -14,7 +15,6 @@
 #include "ext-session-lock-v1-client-protocol.h"
 
 #define FONT        "monospace"
-#define FONT_SIZE   18.0
 #define BG_R        0.06f
 #define BG_G        0.06f
 #define BG_B        0.09f
@@ -30,34 +30,35 @@
 #define INPUT_MAX   256
 
 static struct {
-    struct wl_display              *display;
-    struct wl_registry             *registry;
-    struct wl_compositor           *compositor;
-    struct wl_shm                  *shm;
-    struct wl_seat                 *seat;
-    struct wl_keyboard             *keyboard;
+    struct wl_display                  *display;
+    struct wl_registry                 *registry;
+    struct wl_compositor               *compositor;
+    struct wl_shm                      *shm;
+    struct wl_seat                     *seat;
+    struct wl_keyboard                 *keyboard;
     struct ext_session_lock_manager_v1 *lock_manager;
     struct ext_session_lock_v1         *lock;
-    struct wl_list                  surfaces;
-    struct xkb_context             *xkb_ctx;
-    struct xkb_keymap              *xkb_map;
-    struct xkb_state               *xkb_state;
-    bool                            running;
-    bool                            locked;
-    char                            input[INPUT_MAX];
-    int                             input_len;
-    bool                            error;
+    struct wl_list                      surfaces;
+    struct xkb_context                 *xkb_ctx;
+    struct xkb_keymap                  *xkb_map;
+    struct xkb_state                   *xkb_state;
+    bool                                running;
+    bool                                locked;
+    char                                input[INPUT_MAX];
+    int                                 input_len;
+    bool                                error;
+    char                                username[64];
 } app;
 
 struct lock_surface {
-    struct wl_list                       link;
-    struct wl_output                    *wl_output;
-    struct wl_surface                   *surface;
-    struct ext_session_lock_surface_v1  *lock_surface;
-    struct wl_buffer                    *buffer;
-    int                                  width;
-    int                                  height;
-    bool                                 configured;
+    struct wl_list                      link;
+    struct wl_output                   *wl_output;
+    struct wl_surface                  *surface;
+    struct ext_session_lock_surface_v1 *lock_surface;
+    struct wl_buffer                   *buffer;
+    int                                 width;
+    int                                 height;
+    bool                                configured;
 };
 
 static int create_shm_file(size_t size)
@@ -116,28 +117,42 @@ static void render_surface(struct lock_surface *ls)
         CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, 72.0);
     cairo_set_source_rgb(cr, FG_R, FG_G, FG_B);
+
     cairo_text_extents_t ext;
     cairo_text_extents(cr, timebuf, &ext);
     cairo_move_to(cr,
-        (ls->width - ext.width) / 2.0 - ext.x_bearing,
-        ls->height * 0.38 - ext.y_bearing / 2.0);
+        (ls->width  - ext.width)  / 2.0 - ext.x_bearing,
+        ls->height  * 0.38        - ext.y_bearing / 2.0);
     cairo_show_text(cr, timebuf);
 
     cairo_select_font_face(cr, FONT, CAIRO_FONT_SLANT_NORMAL,
         CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 20.0);
-    cairo_set_source_rgba(cr, FG_R, FG_G, FG_B, 0.55);
+    cairo_set_source_rgba(cr, FG_R, FG_G, FG_B, 0.50);
     cairo_text_extents(cr, datebuf, &ext);
     cairo_move_to(cr,
         (ls->width - ext.width) / 2.0 - ext.x_bearing,
-        ls->height * 0.38 + 52);
+        ls->height * 0.38 + 56.0);
     cairo_show_text(cr, datebuf);
 
-    int dot_count = app.input_len;
-    if (dot_count > 32) dot_count = 32;
-    int dot_r = 6;
+    if (app.username[0]) {
+        char ubuf[80];
+        snprintf(ubuf, sizeof(ubuf), "%s", app.username);
+        cairo_set_font_size(cr, 15.0);
+        cairo_set_source_rgba(cr, FG_R, FG_G, FG_B, 0.35);
+        cairo_text_extents(cr, ubuf, &ext);
+        cairo_move_to(cr,
+            (ls->width - ext.width) / 2.0 - ext.x_bearing,
+            ls->height * 0.38 + 84.0);
+        cairo_show_text(cr, ubuf);
+    }
+
+    int dot_count = app.input_len < 32 ? app.input_len : 32;
+    int dot_r   = 6;
     int dot_gap = 18;
-    int total = dot_count * (dot_r * 2) + (dot_count - 1) * (dot_gap - dot_r * 2);
+    int total   = dot_count > 0
+        ? dot_count * (dot_r * 2) + (dot_count - 1) * (dot_gap - dot_r * 2)
+        : 0;
     int ox = (ls->width - total) / 2;
     int oy = (int)(ls->height * 0.56);
 
@@ -147,21 +162,21 @@ static void render_surface(struct lock_surface *ls)
             cairo_set_source_rgb(cr, ERR_R, ERR_G, ERR_B);
         else
             cairo_set_source_rgb(cr, DOT_R, DOT_G, DOT_B);
-        cairo_arc(cr, cx, oy, dot_r, 0, 2 * 3.14159265);
+        cairo_arc(cr, cx, oy, dot_r, 0, 2.0 * 3.14159265);
         cairo_fill(cr);
     }
 
     if (dot_count == 0) {
         const char *hint = app.error ? "incorrect password" : "enter password";
-        cairo_set_font_size(cr, FONT_SIZE - 2);
+        cairo_set_font_size(cr, 14.0);
         if (app.error)
-            cairo_set_source_rgba(cr, ERR_R, ERR_G, ERR_B, 0.8);
+            cairo_set_source_rgba(cr, ERR_R, ERR_G, ERR_B, 0.85);
         else
-            cairo_set_source_rgba(cr, FG_R, FG_G, FG_B, 0.3);
+            cairo_set_source_rgba(cr, FG_R, FG_G, FG_B, 0.28);
         cairo_text_extents(cr, hint, &ext);
         cairo_move_to(cr,
             (ls->width - ext.width) / 2.0 - ext.x_bearing,
-            oy + 2 - ext.y_bearing / 2.0);
+            oy - ext.y_bearing / 2.0);
         cairo_show_text(cr, hint);
     }
 
@@ -186,12 +201,41 @@ static void render_all(void)
         render_surface(ls);
 }
 
+static int pam_conversation(int num_msg, const struct pam_message **msg,
+    struct pam_response **resp, void *appdata_ptr)
+{
+    struct pam_response *r = calloc(num_msg, sizeof(struct pam_response));
+    if (!r)
+        return PAM_CONV_ERR;
+
+    for (int i = 0; i < num_msg; i++) {
+        if (msg[i]->msg_style == PAM_PROMPT_ECHO_OFF ||
+            msg[i]->msg_style == PAM_PROMPT_ECHO_ON) {
+            r[i].resp = strdup((const char *)appdata_ptr);
+        }
+    }
+
+    *resp = r;
+    return PAM_SUCCESS;
+}
+
 static bool verify_password(const char *password)
 {
-    (void)password;
-    fprintf(stderr, "kumlock: password verification not implemented\n");
-    fprintf(stderr, "kumlock: integrate with PAM for production use\n");
-    return false;
+    struct pam_conv conv = {
+        .conv        = pam_conversation,
+        .appdata_ptr = (void *)password,
+    };
+
+    pam_handle_t *handle = NULL;
+    int ret = pam_start("login", app.username, &conv, &handle);
+    if (ret != PAM_SUCCESS) {
+        pam_end(handle, ret);
+        return false;
+    }
+
+    ret = pam_authenticate(handle, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK);
+    pam_end(handle, ret);
+    return ret == PAM_SUCCESS;
 }
 
 static void attempt_unlock(void)
@@ -262,15 +306,16 @@ static void kb_keymap(void *data, struct wl_keyboard *kb,
     munmap(map, size);
     close(fd);
 }
+
 static void kb_enter(void *d, struct wl_keyboard *k, uint32_t s,
     struct wl_surface *surf, struct wl_array *a) {}
 static void kb_leave(void *d, struct wl_keyboard *k, uint32_t s,
     struct wl_surface *surf) {}
 static void kb_modifiers(void *d, struct wl_keyboard *k,
-    uint32_t s, uint32_t dep, uint32_t lat, uint32_t lock, uint32_t grp)
+    uint32_t s, uint32_t dep, uint32_t lat, uint32_t lck, uint32_t grp)
 {
     if (app.xkb_state)
-        xkb_state_update_mask(app.xkb_state, dep, lat, lock, 0, 0, grp);
+        xkb_state_update_mask(app.xkb_state, dep, lat, lck, 0, 0, grp);
 }
 static void kb_repeat_info(void *d, struct wl_keyboard *k,
     int32_t rate, int32_t delay) {}
@@ -336,18 +381,21 @@ static const struct ext_session_lock_v1_listener lock_listener = {
     .finished = session_lock_finished,
 };
 
-static void wl_output_done(void *data, struct wl_output *wl_out)
+static void output_create_lock_surface(struct lock_surface *ls)
 {
-    struct lock_surface *ls = data;
     if (!app.lock)
         return;
-
     ls->surface = wl_compositor_create_surface(app.compositor);
     ls->lock_surface = ext_session_lock_v1_get_lock_surface(
         app.lock, ls->surface, ls->wl_output);
     ext_session_lock_surface_v1_add_listener(ls->lock_surface,
         &lock_surface_listener, ls);
     wl_surface_commit(ls->surface);
+}
+
+static void wl_output_done(void *data, struct wl_output *wl_out)
+{
+    output_create_lock_surface(data);
 }
 
 static void wl_output_geometry(void *d, struct wl_output *o,
@@ -372,7 +420,8 @@ static void registry_global(void *data, struct wl_registry *reg,
     uint32_t name, const char *iface, uint32_t version)
 {
     if (strcmp(iface, wl_compositor_interface.name) == 0)
-        app.compositor = wl_registry_bind(reg, name, &wl_compositor_interface, 4);
+        app.compositor = wl_registry_bind(reg, name,
+            &wl_compositor_interface, 4);
     else if (strcmp(iface, wl_shm_interface.name) == 0)
         app.shm = wl_registry_bind(reg, name, &wl_shm_interface, 1);
     else if (strcmp(iface, wl_seat_interface.name) == 0) {
@@ -390,6 +439,7 @@ static void registry_global(void *data, struct wl_registry *reg,
 }
 
 static void registry_remove(void *d, struct wl_registry *r, uint32_t n) {}
+
 static const struct wl_registry_listener registry_listener = {
     .global        = registry_global,
     .global_remove = registry_remove,
@@ -400,6 +450,10 @@ int main(int argc, char *argv[])
     memset(&app, 0, sizeof(app));
     wl_list_init(&app.surfaces);
     app.running = true;
+
+    struct passwd *pw = getpwuid(getuid());
+    if (pw)
+        strncpy(app.username, pw->pw_name, sizeof(app.username) - 1);
 
     app.display = wl_display_connect(NULL);
     if (!app.display) {
@@ -414,7 +468,8 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(app.display);
 
     if (!app.lock_manager) {
-        fprintf(stderr, "kumlock: compositor does not support ext-session-lock-v1\n");
+        fprintf(stderr,
+            "kumlock: compositor does not support ext-session-lock-v1\n");
         return 1;
     }
 
@@ -423,7 +478,7 @@ int main(int argc, char *argv[])
 
     struct lock_surface *ls;
     wl_list_for_each(ls, &app.surfaces, link)
-        wl_output_done(ls, ls->wl_output);
+        output_create_lock_surface(ls);
 
     wl_display_roundtrip(app.display);
 

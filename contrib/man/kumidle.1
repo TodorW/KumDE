@@ -1,0 +1,27 @@
+.TH KUMIDLE 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumidle \- idle and DPMS manager for KumDE
+.SH SYNOPSIS
+.B kumidle
+[\fBoptions\fR]
+.SH OPTIONS
+.TP
+.B --idle-s \fIn\fR
+Seconds of inactivity before idle command runs (default: 300).
+.TP
+.B --lock-s \fIn\fR
+Seconds before screen lock (default: 310).
+.TP
+.B --dpms-s \fIn\fR
+Seconds before displays turn off (default: 330).
+.TP
+.B --lock-cmd \fIcmd\fR
+Command to run on lock (default: kumlock).
+.TP
+.B --idle-cmd \fIcmd\fR
+Command to run on idle.
+.TP
+.B --resume-cmd \fIcmd\fR
+Command to run on resume from idle.
+.SH NOTES
+Requires the compositor to support ext-idle-notify-v1.

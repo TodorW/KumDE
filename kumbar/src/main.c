@@ -2,6 +2,7 @@
 #include <cairo/cairo.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,10 +11,12 @@
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
-#include <poll.h>
+#include <wayland-client-protocol.h>
 
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+
+#define IPC_RECONNECT_INTERVAL_S 3
 
 static int create_shm_file(size_t size)
 {
@@ -58,31 +61,33 @@ static struct wl_buffer *create_buffer(struct kumbar *bar,
 
 static void render_background(cairo_t *cr, int width)
 {
-    cairo_set_source_rgba(cr,
-        KUMBAR_BG_R, KUMBAR_BG_G, KUMBAR_BG_B, KUMBAR_ALPHA);
+    cairo_set_source_rgba(cr, KUMBAR_BG_R, KUMBAR_BG_G, KUMBAR_BG_B, KUMBAR_ALPHA);
     cairo_rectangle(cr, 0, 0, width, KUMBAR_HEIGHT);
     cairo_fill(cr);
 }
 
 static void render_workspaces(cairo_t *cr, struct kumbar_output *output)
 {
-    int x       = KUMBAR_PADDING;
-    int cell    = KUMBAR_HEIGHT - 8;
+    int x    = KUMBAR_PADDING;
+    int cell = KUMBAR_HEIGHT - 10;
 
     for (int i = 0; i < KUMBAR_WS_COUNT; i++) {
-        bool active = (i == output->active_ws);
+        bool active   = (i == output->active_ws);
+        bool occupied = output->occupied_ws[i];
+
+        if (!active && !occupied)
+            continue;
 
         if (active) {
             cairo_set_source_rgba(cr,
-                KUMBAR_ACC_R, KUMBAR_ACC_G, KUMBAR_ACC_B, 0.20f);
-            cairo_rectangle(cr, x - 3, 3, cell + 6, cell + 2);
+                KUMBAR_ACC_R, KUMBAR_ACC_G, KUMBAR_ACC_B, 0.18);
+            cairo_rectangle(cr, x - 4, 4, cell + 8, cell);
             cairo_fill(cr);
-
             cairo_set_source_rgba(cr,
                 KUMBAR_ACC_R, KUMBAR_ACC_G, KUMBAR_ACC_B, KUMBAR_ALPHA);
         } else {
             cairo_set_source_rgba(cr,
-                KUMBAR_FG_R, KUMBAR_FG_G, KUMBAR_FG_B, 0.30f);
+                KUMBAR_FG_R, KUMBAR_FG_G, KUMBAR_FG_B, 0.38);
         }
 
         cairo_select_font_face(cr, KUMBAR_FONT,
@@ -95,14 +100,47 @@ static void render_workspaces(cairo_t *cr, struct kumbar_output *output)
 
         cairo_text_extents_t ext;
         cairo_text_extents(cr, label, &ext);
-
         double tx = x + (cell - ext.width) / 2.0 - ext.x_bearing;
         double ty = (KUMBAR_HEIGHT + ext.height) / 2.0 - ext.y_bearing;
         cairo_move_to(cr, tx, ty);
         cairo_show_text(cr, label);
 
+        if (occupied && !active) {
+            cairo_set_source_rgba(cr,
+                KUMBAR_ACC_R, KUMBAR_ACC_G, KUMBAR_ACC_B, 0.55);
+            cairo_arc(cr, x + cell / 2.0,
+                KUMBAR_HEIGHT - 4.5, 2.0, 0, 2.0 * 3.14159265);
+            cairo_fill(cr);
+        }
+
         x += cell + 6;
     }
+}
+
+static void render_ipc_status(cairo_t *cr, int width,
+    bool connected)
+{
+    if (connected)
+        return;
+    cairo_set_source_rgba(cr, 0.7, 0.35, 0.35, 0.6);
+    cairo_arc(cr, width / 2.0, KUMBAR_HEIGHT / 2.0, 3, 0, 2.0 * 3.14159265);
+    cairo_fill(cr);
+}
+
+static void render_title(cairo_t *cr, int width,
+    const char *title)
+{
+    if (!title || !title[0]) return;
+    cairo_select_font_face(cr, KUMBAR_FONT,
+        CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, KUMBAR_FONT_SIZE);
+    cairo_set_source_rgba(cr, KUMBAR_FG_R, KUMBAR_FG_G, KUMBAR_FG_B, 0.75);
+    cairo_text_extents_t ext;
+    cairo_text_extents(cr, title, &ext);
+    double tx = (width - ext.width) / 2.0 - ext.x_bearing;
+    double ty = (KUMBAR_HEIGHT + ext.height) / 2.0 - ext.y_bearing;
+    cairo_move_to(cr, tx, ty);
+    cairo_show_text(cr, title);
 }
 
 static void render_clock(cairo_t *cr, int width)
@@ -120,7 +158,6 @@ static void render_clock(cairo_t *cr, int width)
 
     cairo_text_extents_t ext;
     cairo_text_extents(cr, buf, &ext);
-
     double tx = width - ext.width - ext.x_bearing - KUMBAR_PADDING;
     double ty = (KUMBAR_HEIGHT + ext.height) / 2.0 - ext.y_bearing;
     cairo_move_to(cr, tx, ty);
@@ -142,8 +179,6 @@ void kumbar_render_output(struct kumbar *bar, struct kumbar_output *output)
     if (!output->buffer)
         return;
 
-    output->data = data;
-
     int stride = output->width * 4;
     cairo_surface_t *cs = cairo_image_surface_create_for_data(
         data, CAIRO_FORMAT_ARGB32, output->width, KUMBAR_HEIGHT, stride);
@@ -151,6 +186,8 @@ void kumbar_render_output(struct kumbar *bar, struct kumbar_output *output)
 
     render_background(cr, output->width);
     render_workspaces(cr, output);
+    render_ipc_status(cr, output->width, bar->ipc_fd >= 0);
+    render_title(cr, output->width, output->focused_title);
     render_clock(cr, output->width);
 
     cairo_destroy(cr);
@@ -161,10 +198,14 @@ void kumbar_render_output(struct kumbar *bar, struct kumbar_output *output)
     wl_surface_commit(output->surface);
 
     output->dirty = false;
+    munmap(data, (size_t)output->width * 4 * KUMBAR_HEIGHT);
 }
 
 void kumbar_ipc_connect(struct kumbar *bar)
 {
+    if (bar->ipc_fd >= 0)
+        return;
+
     const char *path = getenv("KUMDE_IPC");
     if (!path)
         return;
@@ -183,7 +224,13 @@ void kumbar_ipc_connect(struct kumbar *bar)
         return;
     }
 
-    bar->ipc_fd = fd;
+    bar->ipc_fd              = fd;
+    bar->ipc_last_attempt    = time(NULL);
+    bar->ipc_ibuf_len        = 0;
+
+    struct kumbar_output *o;
+    wl_list_for_each(o, &bar->outputs, link)
+        o->dirty = true;
 }
 
 static void handle_ipc_message(struct kumbar *bar, const char *msg)
@@ -191,8 +238,9 @@ static void handle_ipc_message(struct kumbar *bar, const char *msg)
     char output_name[64] = {0};
     int  ws_index = -1;
 
-    if (sscanf(msg, "{\"event\":\"workspace\",\"output\":\"%63[^\"]\",\"index\":%d}",
-               output_name, &ws_index) == 2 && ws_index >= 0) {
+    if (sscanf(msg,
+        "{\"event\":\"workspace\",\"output\":\"%63[^\"]\",\"index\":%d}",
+        output_name, &ws_index) == 2 && ws_index >= 0) {
         struct kumbar_output *o;
         wl_list_for_each(o, &bar->outputs, link) {
             if (strcmp(o->name, output_name) == 0) {
@@ -201,13 +249,56 @@ static void handle_ipc_message(struct kumbar *bar, const char *msg)
                 break;
             }
         }
+        return;
+    }
+
+    if (strncmp(msg, "{\"event\":\"window_title\"", 25) == 0) {
+        char title[256] = {0};
+        char output_name[64] = {0};
+        if (sscanf(msg, "{\"event\":\"window_title\",\"output\":\"%63[^\"]\",\"title\":\"%255[^\"]",
+                output_name, title) >= 1) {
+            struct kumbar_output *o;
+            wl_list_for_each(o, &bar->outputs, link) {
+                if (!output_name[0] || strcmp(o->name, output_name) == 0) {
+                    strncpy(o->focused_title, title, 255);
+                    o->dirty = true;
+                }
+            }
+        }
+        return;
+    }
+
+    if (strncmp(msg, "{\"event\":\"occupancy\"", 20) == 0) {
+        const char *p = strstr(msg, "\"ws\":[");
+        if (!p) return;
+        p += 6;
+        int vals[KUMBAR_WS_COUNT];
+        int n = 0;
+        while (*p && *p != ']' && n < KUMBAR_WS_COUNT) {
+            if (*p >= '0' && *p <= '9') {
+                vals[n++] = *p - '0';
+            }
+            p++;
+        }
+        struct kumbar_output *o;
+        wl_list_for_each(o, &bar->outputs, link) {
+            for (int i = 0; i < n && i < KUMBAR_WS_COUNT; i++)
+                o->occupied_ws[i] = vals[i] != 0;
+            o->dirty = true;
+        }
     }
 }
 
 void kumbar_ipc_dispatch(struct kumbar *bar)
 {
-    if (bar->ipc_fd < 0)
+    if (bar->ipc_fd < 0) {
+        time_t now = time(NULL);
+        if (now - bar->ipc_last_attempt >= IPC_RECONNECT_INTERVAL_S) {
+            bar->ipc_last_attempt = now;
+            kumbar_ipc_connect(bar);
+        }
         return;
+    }
 
     char tmp[KUMBAR_IPC_BUF];
     ssize_t n = recv(bar->ipc_fd, tmp, sizeof(tmp) - 1, MSG_DONTWAIT);
@@ -215,14 +306,18 @@ void kumbar_ipc_dispatch(struct kumbar *bar)
         if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
             close(bar->ipc_fd);
             bar->ipc_fd = -1;
+            bar->ipc_last_attempt = time(NULL);
+            struct kumbar_output *o;
+            wl_list_for_each(o, &bar->outputs, link)
+                o->dirty = true;
         }
         return;
     }
+
     tmp[n] = '\0';
 
-    int remaining = (int)(sizeof(bar->ipc_ibuf) - bar->ipc_ibuf_len - 1);
-    if (n > remaining)
-        n = remaining;
+    int room = (int)(sizeof(bar->ipc_ibuf) - bar->ipc_ibuf_len - 1);
+    if (n > room) n = room;
     memcpy(bar->ipc_ibuf + bar->ipc_ibuf_len, tmp, n);
     bar->ipc_ibuf_len += (int)n;
     bar->ipc_ibuf[bar->ipc_ibuf_len] = '\0';
@@ -231,15 +326,16 @@ void kumbar_ipc_dispatch(struct kumbar *bar)
     char *nl;
     while ((nl = strchr(start, '\n')) != NULL) {
         *nl = '\0';
-        handle_ipc_message(bar, start);
+        if (*start)
+            handle_ipc_message(bar, start);
         start = nl + 1;
     }
 
-    int leftover = (int)(bar->ipc_ibuf + bar->ipc_ibuf_len - start);
-    if (leftover > 0)
-        memmove(bar->ipc_ibuf, start, leftover);
-    bar->ipc_ibuf_len = leftover;
-    bar->ipc_ibuf[bar->ipc_ibuf_len] = '\0';
+    int left = (int)(bar->ipc_ibuf + bar->ipc_ibuf_len - start);
+    if (left > 0)
+        memmove(bar->ipc_ibuf, start, left);
+    bar->ipc_ibuf_len = left;
+    bar->ipc_ibuf[left] = '\0';
 }
 
 static void layer_surface_configure(void *data,
@@ -274,14 +370,14 @@ static void xdg_output_name(void *data,
     zxdg_output_v1_destroy(xdg_output);
 }
 
-static void xdg_output_description(void *data,
-    struct zxdg_output_v1 *xdg_output, const char *desc) {}
-static void xdg_output_logical_position(void *data,
-    struct zxdg_output_v1 *xdg_output, int32_t x, int32_t y) {}
-static void xdg_output_logical_size(void *data,
-    struct zxdg_output_v1 *xdg_output, int32_t w, int32_t h) {}
-static void xdg_output_done(void *data,
-    struct zxdg_output_v1 *xdg_output) {}
+static void xdg_output_description(void *d,
+    struct zxdg_output_v1 *o, const char *dc) {}
+static void xdg_output_logical_position(void *d,
+    struct zxdg_output_v1 *o, int32_t x, int32_t y) {}
+static void xdg_output_logical_size(void *d,
+    struct zxdg_output_v1 *o, int32_t w, int32_t h) {}
+static void xdg_output_done(void *d,
+    struct zxdg_output_v1 *o) {}
 
 static const struct zxdg_output_v1_listener xdg_output_listener = {
     .logical_position = xdg_output_logical_position,
@@ -291,30 +387,28 @@ static const struct zxdg_output_v1_listener xdg_output_listener = {
     .description      = xdg_output_description,
 };
 
-static void wl_output_geometry(void *data, struct wl_output *wl_out,
-    int x, int y, int pw, int ph, int subpixel,
-    const char *make, const char *model, int transform) {}
-static void wl_output_mode(void *data, struct wl_output *wl_out,
+static void wl_output_geometry(void *d, struct wl_output *o,
+    int x, int y, int pw, int ph, int sp,
+    const char *mk, const char *mo, int t) {}
+static void wl_output_mode(void *d, struct wl_output *o,
     uint32_t flags, int w, int h, int refresh)
 {
-    struct kumbar_output *output = data;
-    if (flags & WL_OUTPUT_MODE_CURRENT) {
-        output->width  = w;
-        output->height = h;
-    }
+    struct kumbar_output *output = d;
+    if (flags & WL_OUTPUT_MODE_CURRENT)
+        output->width = w;
 }
-static void wl_output_done(void *data, struct wl_output *wl_out) {}
-static void wl_output_scale(void *data, struct wl_output *wl_out, int32_t s)
+static void wl_output_done(void *d, struct wl_output *o) {}
+static void wl_output_scale(void *d, struct wl_output *o, int32_t s)
 {
-    ((struct kumbar_output *)data)->scale = s;
+    ((struct kumbar_output *)d)->scale = s;
 }
-static void wl_output_name(void *data, struct wl_output *wl_out, const char *n)
+static void wl_output_name(void *d, struct wl_output *o, const char *n)
 {
-    struct kumbar_output *output = data;
-    strncpy(output->name, n, sizeof(output->name) - 1);
+    strncpy(((struct kumbar_output *)d)->name, n,
+        sizeof(((struct kumbar_output *)d)->name) - 1);
 }
-static void wl_output_description(void *data, struct wl_output *wl_out,
-    const char *d) {}
+static void wl_output_description(void *d, struct wl_output *o,
+    const char *dc) {}
 
 static const struct wl_output_listener wl_output_listener = {
     .geometry    = wl_output_geometry,
@@ -335,15 +429,13 @@ static void setup_layer_surface(struct kumbar *bar,
 
     zwlr_layer_surface_v1_set_size(output->layer_surface, 0, KUMBAR_HEIGHT);
     zwlr_layer_surface_v1_set_anchor(output->layer_surface,
-        ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+        ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP  |
         ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
         ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
     zwlr_layer_surface_v1_set_exclusive_zone(output->layer_surface,
         KUMBAR_HEIGHT);
-
     zwlr_layer_surface_v1_add_listener(output->layer_surface,
         &layer_surface_listener, output);
-
     wl_surface_commit(output->surface);
 }
 
@@ -365,12 +457,13 @@ static void registry_global(void *data, struct wl_registry *registry,
             &zxdg_output_manager_v1_interface, 2);
     } else if (strcmp(iface, wl_output_interface.name) == 0) {
         struct kumbar_output *output = calloc(1, sizeof(*output));
-        output->scale    = 1;
+        output->scale     = 1;
         output->active_ws = 0;
         output->dirty     = false;
         output->wl_output = wl_registry_bind(registry, name,
             &wl_output_interface, 4);
-        wl_output_add_listener(output->wl_output, &wl_output_listener, output);
+        wl_output_add_listener(output->wl_output,
+            &wl_output_listener, output);
         wl_list_insert(&bar->outputs, &output->link);
     }
 }
@@ -389,6 +482,7 @@ int main(int argc, char *argv[])
     wl_list_init(&bar.outputs);
     bar.running  = true;
     bar.ipc_fd   = -1;
+    bar.ipc_last_attempt = 0;
 
     bar.display = wl_display_connect(NULL);
     if (!bar.display) {
@@ -412,13 +506,13 @@ int main(int argc, char *argv[])
             struct zxdg_output_v1 *xdg_out =
                 zxdg_output_manager_v1_get_xdg_output(
                     bar.xdg_output_manager, output->wl_output);
-            zxdg_output_v1_add_listener(xdg_out, &xdg_output_listener, output);
+            zxdg_output_v1_add_listener(xdg_out,
+                &xdg_output_listener, output);
         }
         setup_layer_surface(&bar, output);
     }
 
     wl_display_roundtrip(bar.display);
-
     kumbar_ipc_connect(&bar);
 
     wl_list_for_each(output, &bar.outputs, link)
@@ -442,7 +536,8 @@ int main(int argc, char *argv[])
             nfds++;
         }
 
-        int ret = poll(fds, nfds, 1000);
+        int timeout = bar.ipc_fd < 0 ? IPC_RECONNECT_INTERVAL_S * 1000 : 1000;
+        int ret = poll(fds, nfds, timeout);
 
         if (ret < 0)
             break;
@@ -450,11 +545,16 @@ int main(int argc, char *argv[])
         if (fds[0].revents & POLLIN)
             wl_display_dispatch(bar.display);
 
-        if (nfds > 1 && (fds[1].revents & POLLIN)) {
+        if (nfds > 1 && (fds[1].revents & (POLLIN | POLLHUP | POLLERR)))
             kumbar_ipc_dispatch(&bar);
-            wl_list_for_each(output, &bar.outputs, link) {
-                if (output->dirty)
-                    kumbar_render_output(&bar, output);
+        else if (ret == 0 && bar.ipc_fd < 0)
+            kumbar_ipc_dispatch(&bar);
+
+        bool any_dirty = false;
+        wl_list_for_each(output, &bar.outputs, link) {
+            if (output->dirty) {
+                kumbar_render_output(&bar, output);
+                any_dirty = true;
             }
         }
 
@@ -464,6 +564,7 @@ int main(int argc, char *argv[])
         }
 
         wl_display_flush(bar.display);
+        (void)any_dirty;
     }
 
     return 0;

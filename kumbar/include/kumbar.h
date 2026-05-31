@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define KUMBAR_VERSION      "0.2.0"
+#define KUMBAR_VERSION      "0.3.0"
 #define KUMBAR_HEIGHT       28
 #define KUMBAR_FONT         "monospace"
 #define KUMBAR_FONT_SIZE    13
@@ -25,7 +25,7 @@
 
 #define KUMBAR_WS_COUNT  9
 #define KUMBAR_PADDING   10
-#define KUMBAR_IPC_BUF   256
+#define KUMBAR_IPC_BUF   512
 
 struct kumbar_output {
     struct wl_list               link;
@@ -35,26 +35,29 @@ struct kumbar_output {
     int                          height;
     int                          scale;
     int                          active_ws;
+    bool                         occupied_ws[KUMBAR_WS_COUNT];
     struct wl_surface           *surface;
     struct zwlr_layer_surface_v1 *layer_surface;
     struct wl_buffer            *buffer;
     uint8_t                     *data;
     bool                         configured;
     bool                         dirty;
+    char                         focused_title[256];
 };
 
 struct kumbar {
-    struct wl_display          *display;
-    struct wl_registry         *registry;
-    struct wl_compositor       *compositor;
-    struct wl_shm              *shm;
-    struct zwlr_layer_shell_v1 *layer_shell;
-    struct zxdg_output_manager_v1 *xdg_output_manager;
+    struct wl_display               *display;
+    struct wl_registry              *registry;
+    struct wl_compositor            *compositor;
+    struct wl_shm                   *shm;
+    struct zwlr_layer_shell_v1      *layer_shell;
+    struct zxdg_output_manager_v1  *xdg_output_manager;
 
     struct wl_list  outputs;
     bool            running;
 
     int             ipc_fd;
+    time_t          ipc_last_attempt;
     char            ipc_ibuf[KUMBAR_IPC_BUF];
     int             ipc_ibuf_len;
 };

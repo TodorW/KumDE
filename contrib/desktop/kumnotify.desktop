@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=kumnotify
+Exec=kumnotify
+NoDisplay=true
+Categories=System;

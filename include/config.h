@@ -1,7 +1,7 @@
 #ifndef KUMDE_CONFIG_H
 #define KUMDE_CONFIG_H
 
-#define KUM_VERSION             "0.4.0"
+#define KUM_VERSION             "0.8.0"
 
 #define KUM_BORDER_WIDTH        3
 #define KUM_BORDER_ACTIVE_R     0.45f
@@ -38,3 +38,12 @@
 #define KUM_IPC_SOCKET_NAME     "kumde-ipc"
 
 #endif
+
+#define KUM_KB_LAYOUT           "us"
+#define KUM_KB_VARIANT          ""
+#define KUM_KB_MODEL            ""
+#define KUM_KB_OPTIONS          ""
+#define KUM_TAP_TO_CLICK        true
+#define KUM_NATURAL_SCROLL      false
+#define KUM_DISABLE_WHILE_TYPE  true
+#define KUM_POINTER_ACCEL       0.0f

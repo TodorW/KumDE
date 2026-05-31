@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KumShot
+Comment=Screenshot tool
+Exec=kumshot
+NoDisplay=false
+Categories=Utility;Graphics;
+Keywords=screenshot;capture;screen;

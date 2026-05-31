@@ -1,0 +1,18 @@
+.TH KUMSHOT 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumshot \- screenshot tool for Wayland
+.SH SYNOPSIS
+.B kumshot
+[\fB\-o\fR \fIfile\fR] [\fB\-s\fR \fIoutput\fR] [\fB\-a\fR]
+.SH OPTIONS
+.TP
+.B \-o \fIfile\fR
+Output path. Default: ~/Pictures/kumshot_TIMESTAMP.png
+.TP
+.B \-s \fIoutput\fR
+Capture a specific output by name (e.g. DP-1).
+.TP
+.B \-a
+Capture all outputs into a single composited image.
+.SH OUTPUT
+Prints the saved file path to stdout.

@@ -1,0 +1,13 @@
+[Unit]
+Description=KumDE idle manager
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/kumidle --lock-s 300 --dpms-s 360
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

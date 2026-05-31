@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KumLauncher
+Comment=Application launcher
+Exec=kumlauncher
+NoDisplay=false
+Categories=Utility;
+Keywords=launch;run;app;

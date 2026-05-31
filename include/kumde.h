@@ -49,6 +49,7 @@ typedef enum {
 typedef enum {
     LAYOUT_FLOATING = 0,
     LAYOUT_TILE,
+    LAYOUT_MONOCLE,
 } kum_layout_mode;
 
 typedef struct {
@@ -60,6 +61,18 @@ typedef struct {
     float           current;
     bool            done;
 } kum_animation;
+
+typedef struct {
+    char    name[64];
+    int     width;
+    int     height;
+    int     refresh;
+    int     x;
+    int     y;
+    float   scale;
+    bool    enabled;
+    char    transform[16];
+} kum_output_config;
 
 struct kum_runtime_config {
     char    terminal[256];
@@ -82,6 +95,18 @@ struct kum_runtime_config {
     bool    shadows;
     bool    rounded_corners;
     bool    focus_follows_mouse;
+    char    kb_layout[64];
+    char    kb_variant[64];
+    char    kb_model[64];
+    char    kb_options[128];
+    bool    tap_to_click;
+    bool    natural_scroll;
+    bool    disable_while_typing;
+    float   pointer_accel;
+    char    autostart[16][256];
+    int     autostart_count;
+    struct kum_output_config output_configs[8];
+    int     output_config_count;
 };
 
 struct kum_workspace {
@@ -147,6 +172,8 @@ struct kum_server {
     struct wl_listener  request_set_selection;
 
     struct kum_toplevel *focused;
+    struct wl_list       rules;
+    int                  scratchpad_ws;
 
 #ifdef KUM_XWAYLAND
     struct wlr_xwayland      *xwayland;
@@ -163,6 +190,7 @@ struct kum_toplevel {
     struct wlr_scene_tree   *scene_tree;
     struct wlr_scene_rect   *border[4];
     struct wlr_scene_buffer *shadow_buf;
+    struct wlr_scene_buffer *corner_mask_buf;
     kum_animation            anim;
     float                    opacity;
     float                    scale;
@@ -281,6 +309,9 @@ void kum_shadow_create(struct kum_toplevel *toplevel);
 void kum_shadow_update(struct kum_toplevel *toplevel);
 void kum_shadow_destroy(struct kum_toplevel *toplevel);
 
+void kum_corners_apply(struct kum_toplevel *toplevel);
+void kum_corners_destroy(struct kum_toplevel *toplevel);
+
 void kum_new_layer_surface(struct wl_listener *listener, void *data);
 
 void kum_keybind_register(struct kum_server *server, uint32_t modifiers,
@@ -307,6 +338,7 @@ void kum_workspace_toggle_layout(struct kum_server *server,
 void kum_ipc_init(struct kum_server *server);
 void kum_ipc_finish(struct kum_server *server);
 void kum_ipc_broadcast(struct kum_server *server, const char *msg, int len);
+void kum_ipc_broadcast_occupancy(struct kum_server *server);
 
 #ifdef KUM_XWAYLAND
 void kum_xwayland_init(struct kum_server *server);
@@ -314,3 +346,35 @@ void kum_xwayland_finish(struct kum_server *server);
 #endif
 
 #endif
+
+struct kum_rule {
+    struct wl_list  link;
+    char            app_id[128];
+    char            title[128];
+    int             workspace;
+    bool            floating;
+    bool            fullscreen;
+    int             w, h;
+    int             x, y;
+};
+
+void kum_rules_init(struct kum_server *server);
+void kum_rules_free(struct kum_server *server);
+void kum_rules_load(struct kum_server *server, const char *path);
+void kum_rules_apply(struct kum_server *server, struct kum_toplevel *tl);
+
+void kum_output_focus_adjacent(struct kum_server *server, int dx, int dy);
+
+void kum_workspace_scratchpad_toggle(struct kum_server *server);
+void kum_workspace_monocle_arrange(struct kum_server *server,
+    struct kum_output *output, int ws_index);
+void kum_keybind_setup_extended(struct kum_server *server);
+
+void kum_input_configure(struct kum_server *server);
+void kum_output_configure_all(struct kum_server *server);
+void kum_autostart_run(struct kum_server *server);
+void kum_kb_layout_next(struct kum_server *server);
+void kum_tiling_swap_master(struct kum_server *server);
+void kum_tiling_resize(struct kum_server *server, int dw, int dh);
+void kum_kb_layout_init(struct kum_server *server);
+void kum_keybind_setup_session(struct kum_server *server);

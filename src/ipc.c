@@ -210,3 +210,25 @@ void kum_ipc_finish(struct kum_server *server)
 
     unlink(server->ipc.path);
 }
+
+void kum_ipc_broadcast_occupancy(struct kum_server *server)
+{
+    bool occupied[KUM_WORKSPACE_COUNT] = {0};
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &server->toplevels, link) {
+        if (tl->workspace >= 0 && tl->workspace < KUM_WORKSPACE_COUNT)
+            occupied[tl->workspace] = true;
+    }
+
+    char msg[256];
+    int  pos = 0;
+    pos += snprintf(msg + pos, sizeof(msg) - pos,
+        "{\"event\":\"occupancy\",\"ws\":[");
+    for (int i = 0; i < KUM_WORKSPACE_COUNT; i++) {
+        pos += snprintf(msg + pos, sizeof(msg) - pos,
+            "%s%d", i == 0 ? "" : ",", occupied[i] ? 1 : 0);
+    }
+    pos += snprintf(msg + pos, sizeof(msg) - pos, "]}\n");
+
+    kum_ipc_broadcast(server, msg, pos);
+}

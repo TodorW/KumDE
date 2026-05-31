@@ -1,0 +1,88 @@
+.TH KUMDE 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumde \- Wayland compositor
+.SH SYNOPSIS
+.B kumde
+[\fB\-h\fR] [\fB\-v\fR]
+.SH DESCRIPTION
+kumde is a minimal Wayland compositor built on wlroots. It provides floating
+and tiling window management, nine independent per-output workspaces, window
+animations, drop shadows, rounded corners, and an IPC socket for scripting.
+.SH OPTIONS
+.TP
+.B \-h
+Print usage and exit.
+.TP
+.B \-v
+Print version and exit.
+.SH CONFIGURATION
+.B $XDG_CONFIG_HOME/kumde/kumde.conf
+or
+.B ~/.config/kumde/kumde.conf
+.PP
+An example configuration is installed at
+.IR /usr/share/kumde/kumde.conf .
+.SH KEY BINDINGS
+.TP
+.B Super+q
+Quit.
+.TP
+.B Super+Shift+q
+Shutdown system.
+.TP
+.B Super+Tab
+Cycle window focus.
+.TP
+.B Super+Shift+c
+Close focused window.
+.TP
+.B Super+t
+Toggle tile/floating layout.
+.TP
+.B Super+m
+Monocle layout.
+.TP
+.B Super+Space
+Toggle floating for focused window.
+.TP
+.B Super+Return
+Swap focused window with master.
+.TP
+.B Super+1\-9
+Switch workspace.
+.TP
+.B Super+Shift+1\-9
+Move focused window to workspace.
+.TP
+.B Super+grave
+Toggle scratchpad (workspace 9).
+.TP
+.B Super+Arrow
+Focus adjacent output.
+.TP
+.B Super+Shift+Arrow
+Resize focused window or adjust master ratio in tile mode.
+.TP
+.B Super+k
+Next keyboard layout.
+.TP
+.B Super+Print
+Screenshot (saves to ~/Pictures/).
+.SH IPC
+kumde exposes a Unix socket at
+.IR $XDG_RUNTIME_DIR/kumde-ipc .
+The path is exported as
+.BR KUMDE_IPC .
+See
+.BR kumde-msg (1)
+for usage.
+.SH SEE ALSO
+.BR kumde-msg (1),
+.BR kumbar (1),
+.BR kumlock (1),
+.BR kumlauncher (1),
+.BR kumshot (1),
+.BR kumidle (1),
+.BR kumnotify (1),
+.BR kumclip (1),
+.BR kumwall (1)

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=kumbar
+Exec=kumbar
+NoDisplay=true
+Categories=System;

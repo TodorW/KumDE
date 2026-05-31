@@ -56,8 +56,10 @@ void kum_server_reload_config(struct kum_server *server)
     wl_list_for_each(tl, &server->toplevels, link) {
         kum_border_update(tl, tl == server->focused);
         kum_shadow_destroy(tl);
+        kum_corners_destroy(tl);
         if (tl->xdg_toplevel->base->surface->mapped)
             kum_shadow_create(tl);
+            kum_corners_apply(tl);
     }
 
     struct kum_output *output;
@@ -66,6 +68,8 @@ void kum_server_reload_config(struct kum_server *server)
             kum_workspace_arrange(server, output, output->active_workspace);
     }
 
+    kum_rules_free(server);
+    kum_rules_load(server, path);
     wlr_log(WLR_INFO, "config reloaded");
 }
 
@@ -152,6 +156,8 @@ static void server_setup_input(struct kum_server *server)
         &server->request_set_selection);
 
     kum_keybind_setup_defaults(server);
+    kum_keybind_setup_extended(server);
+    kum_keybind_setup_session(server);
 }
 
 static const char *config_path(void)
@@ -175,6 +181,7 @@ void kum_server_init(struct kum_server *server)
 
     kum_config_defaults(&server->cfg);
     kum_config_load(&server->cfg, config_path());
+    kum_rules_load(server, config_path());
 
     server->display = wl_display_create();
     if (!server->display)
@@ -202,12 +209,15 @@ void kum_server_init(struct kum_server *server)
     wl_list_init(&server->toplevels);
 
     kum_workspace_init(server);
+    kum_rules_init(server);
+    server->scratchpad_ws = KUM_WORKSPACE_COUNT - 1;
     server_setup_globals(server);
     server_setup_outputs(server);
     server_setup_shell(server);
     server_setup_cursor(server);
     server_setup_input(server);
     kum_ipc_init(server);
+    kum_kb_layout_init(server);
 
 #ifdef KUM_XWAYLAND
     if (server->cfg.xwayland)
@@ -255,6 +265,7 @@ void kum_server_run(struct kum_server *server)
     setenv("WAYLAND_DISPLAY", socket, 1);
     wlr_log(WLR_INFO, "WAYLAND_DISPLAY=%s", socket);
 
+    kum_autostart_run(server);
     spawn_terminal(server->cfg.terminal);
     wl_display_run(server->display);
 }
@@ -262,6 +273,7 @@ void kum_server_run(struct kum_server *server)
 void kum_server_finish(struct kum_server *server)
 {
     signal(SIGHUP, SIG_DFL);
+    kum_rules_free(server);
     kum_ipc_finish(server);
 
 #ifdef KUM_XWAYLAND

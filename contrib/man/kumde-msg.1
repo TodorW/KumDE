@@ -1,0 +1,39 @@
+.TH KUMDE-MSG 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumde-msg \- send commands to a running kumde compositor
+.SH SYNOPSIS
+.B kumde-msg
+.I command
+[args]
+.SH COMMANDS
+.TP
+.B workspace \fIn\fR
+Switch focused output to workspace N (1\-9).
+.TP
+.B move-to \fIn\fR
+Move focused window to workspace N.
+.TP
+.B close
+Close the focused window.
+.TP
+.B layout tile|float|monocle
+Set the layout on the focused output.
+.TP
+.B quit
+Quit kumde.
+.TP
+.B reload
+Reload configuration (same as SIGHUP).
+.TP
+.B subscribe
+Stream IPC events to stdout until interrupted.
+.TP
+.B notify \fIapp\fR \fIsummary\fR [\fIbody\fR] [\fIurgency\fR] [\fItimeout_ms\fR]
+Send a notification to kumnotify.
+.SH ENVIRONMENT
+.TP
+.B KUMDE_IPC
+Path to the kumde IPC socket. Set automatically by kumde.
+.TP
+.B KUMNOTIFY_SOCK
+Path to the kumnotify socket. Set automatically by kumnotify.

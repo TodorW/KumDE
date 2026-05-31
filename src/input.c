@@ -91,6 +91,7 @@ void kum_new_input(struct wl_listener *listener, void *data)
     default: break;
     }
 
+    kum_input_configure(server);
     uint32_t caps = WL_SEAT_CAPABILITY_POINTER;
     if (!wl_list_empty(&server->keyboards))
         caps |= WL_SEAT_CAPABILITY_KEYBOARD;

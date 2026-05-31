@@ -110,3 +110,84 @@ void kum_keybind_setup_defaults(struct kum_server *server)
             action_move_to_workspace, (void *)(intptr_t)i);
     }
 }
+
+static void action_focus_left(struct kum_server *s, void *d)
+{ kum_output_focus_adjacent(s, -1, 0); }
+static void action_focus_right(struct kum_server *s, void *d)
+{ kum_output_focus_adjacent(s, 1, 0); }
+static void action_focus_up(struct kum_server *s, void *d)
+{ kum_output_focus_adjacent(s, 0, -1); }
+static void action_focus_down(struct kum_server *s, void *d)
+{ kum_output_focus_adjacent(s, 0, 1); }
+
+static void action_scratchpad(struct kum_server *s, void *d)
+{ kum_workspace_scratchpad_toggle(s); }
+
+static void action_layout_monocle(struct kum_server *s, void *d)
+{
+    struct kum_output *o = kum_output_focused(s);
+    if (!o) return;
+    int idx = o->active_workspace;
+    s->workspaces[idx].layout = LAYOUT_MONOCLE;
+    kum_workspace_arrange(s, o, idx);
+}
+
+void kum_keybind_setup_extended(struct kum_server *server)
+{
+    uint32_t mod = KUM_MOD_KEY;
+    kum_keybind_register(server, mod, XKB_KEY_Left,  action_focus_left,     NULL);
+    kum_keybind_register(server, mod, XKB_KEY_Right, action_focus_right,    NULL);
+    kum_keybind_register(server, mod, XKB_KEY_Up,    action_focus_up,       NULL);
+    kum_keybind_register(server, mod, XKB_KEY_Down,  action_focus_down,     NULL);
+    kum_keybind_register(server, mod, XKB_KEY_grave, action_scratchpad,     NULL);
+    kum_keybind_register(server, mod, XKB_KEY_m,     action_layout_monocle, NULL);
+}
+
+static void action_kb_layout_next(struct kum_server *s, void *d)
+{ kum_kb_layout_next(s); }
+
+static void action_swap_master(struct kum_server *s, void *d)
+{ kum_tiling_swap_master(s); }
+
+static void action_resize_right(struct kum_server *s, void *d)
+{ kum_tiling_resize(s, 40, 0); }
+static void action_resize_left(struct kum_server *s, void *d)
+{ kum_tiling_resize(s, -40, 0); }
+static void action_resize_down(struct kum_server *s, void *d)
+{ kum_tiling_resize(s, 0, 40); }
+static void action_resize_up(struct kum_server *s, void *d)
+{ kum_tiling_resize(s, 0, -40); }
+
+static void action_screenshot(struct kum_server *s, void *d)
+{
+    if (fork() == 0) {
+        setsid();
+        execlp("kumshot", "kumshot", NULL);
+        _exit(1);
+    }
+}
+
+static void action_shutdown(struct kum_server *s, void *d)
+{
+    wl_display_terminate(s->display);
+    if (fork() == 0) {
+        setsid();
+        execlp("systemctl", "systemctl", "poweroff", NULL);
+        _exit(1);
+    }
+}
+
+void kum_keybind_setup_session(struct kum_server *server)
+{
+    uint32_t mod   = KUM_MOD_KEY;
+    uint32_t mod_s = KUM_MOD_KEY | WLR_MODIFIER_SHIFT;
+
+    kum_keybind_register(server, mod,   XKB_KEY_k, action_kb_layout_next, NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_Return, action_swap_master, NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_Right, action_resize_right, NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_Left,  action_resize_left,  NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_Down,  action_resize_down,  NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_Up,    action_resize_up,    NULL);
+    kum_keybind_register(server, mod,   XKB_KEY_Print, action_screenshot,   NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_q,     action_shutdown,     NULL);
+}

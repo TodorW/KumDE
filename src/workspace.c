@@ -42,6 +42,10 @@ void kum_workspace_arrange(struct kum_server *server,
     struct kum_workspace *ws = &server->workspaces[ws_index];
     if (ws->layout == LAYOUT_FLOATING)
         return;
+    if (ws->layout == LAYOUT_MONOCLE) {
+        kum_workspace_monocle_arrange(server, output, ws_index);
+        return;
+    }
 
     int   gap = server->cfg.gap;
     float mr  = server->cfg.master_ratio;
@@ -207,4 +211,46 @@ void kum_workspace_toggle_layout(struct kum_server *server,
 
     wlr_log(WLR_DEBUG, "workspace %d: layout %s", idx,
         ws->layout == LAYOUT_TILE ? "tile" : "float");
+}
+
+void kum_workspace_scratchpad_toggle(struct kum_server *server)
+{
+    struct kum_output *output = kum_output_focused(server);
+    if (!output) return;
+    int cur = output->active_workspace;
+    int scratch = server->scratchpad_ws;
+    if (scratch < 0) return;
+    if (cur == scratch) {
+        for (int i = 0; i < KUM_WORKSPACE_COUNT; i++) {
+            if (i != scratch) {
+                kum_workspace_switch(server, output, i);
+                break;
+            }
+        }
+    } else {
+        kum_workspace_switch(server, output, scratch);
+    }
+}
+
+void kum_workspace_monocle_arrange(struct kum_server *server,
+    struct kum_output *output, int ws_index)
+{
+    struct kum_workspace *ws = &server->workspaces[ws_index];
+    int gap = server->cfg.gap;
+    struct wlr_box area = output->usable_area;
+
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &ws->toplevels, workspace_link) {
+        if (tl->floating || !tl->xdg_toplevel->base->surface->mapped)
+            continue;
+        wlr_scene_node_set_position(&tl->scene_tree->node,
+            area.x + gap, area.y + gap);
+        wlr_xdg_toplevel_set_size(tl->xdg_toplevel,
+            area.width - gap*2, area.height - gap*2);
+        wlr_scene_node_lower_to_bottom(&tl->scene_tree->node);
+        kum_border_update(tl, tl == server->focused);
+    }
+    if (server->focused && server->focused->workspace == ws_index
+            && !server->focused->floating)
+        wlr_scene_node_raise_to_top(&server->focused->scene_tree->node);
 }
