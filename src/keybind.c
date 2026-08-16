@@ -64,10 +64,15 @@ static void action_switch_workspace(struct kum_server *server, void *data)
 
 static void action_move_to_workspace(struct kum_server *server, void *data)
 {
-    if (!server->focused)
-        return;
     int index = (int)(intptr_t)data;
-    kum_workspace_move_toplevel(server, server->focused, index);
+    if (server->focused) {
+        kum_workspace_move_toplevel(server, server->focused, index);
+        return;
+    }
+#ifdef KUM_XWAYLAND
+    if (server->focused_xwayland)
+        kum_workspace_move_xwayland_surface(server, server->focused_xwayland, index);
+#endif
 }
 
 void kum_keybind_register(struct kum_server *server, uint32_t modifiers,

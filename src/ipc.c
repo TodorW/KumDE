@@ -59,9 +59,16 @@ static void ipc_handle_command(struct kum_ipc_client *client, const char *msg)
     } else if (strcmp(cmd, "move_to") == 0) {
         int index = -1;
         sscanf(msg, "{\"cmd\":\"move_to\",\"index\":%d}", &index);
-        if (index >= 0 && index < KUM_WORKSPACE_COUNT && server->focused) {
+        if (index < 0 || index >= KUM_WORKSPACE_COUNT) {
+            ipc_reply(client, "{\"ok\":false,\"error\":\"bad index or no focus\"}\n");
+        } else if (server->focused) {
             kum_workspace_move_toplevel(server, server->focused, index);
             ipc_reply(client, "{\"ok\":true}\n");
+#ifdef KUM_XWAYLAND
+        } else if (server->focused_xwayland) {
+            kum_workspace_move_xwayland_surface(server, server->focused_xwayland, index);
+            ipc_reply(client, "{\"ok\":true}\n");
+#endif
         } else {
             ipc_reply(client, "{\"ok\":false,\"error\":\"bad index or no focus\"}\n");
         }
