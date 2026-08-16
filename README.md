@@ -42,6 +42,10 @@ Ships with a full companion suite: status bar, app launcher, wallpaper client, s
 **kumlock**
 - libpam (PAM development headers, e.g. `pam` / `pam-devel` / `libpam0g-dev`)
 
+**Optional, runtime only (media keys)**
+- `wpctl` (wireplumber) for volume keys
+- `brightnessctl` for brightness keys
+
 **Arch Linux**
 ```
 pacman -S wlroots wayland wayland-protocols libxkbcommon libinput cairo pam meson ninja
@@ -149,6 +153,9 @@ Reload config at runtime: `kill -HUP $(pidof kumde)` or `kumde-msg reload`.
 | Super + k | Cycle to next configured keyboard layout |
 | Super + Print | Screenshot (spawns `kumshot`) |
 | Super + Shift + q | Power off |
+| Super + Shift + l | Lock screen (spawns `kumlock`) |
+| XF86AudioRaiseVolume / LowerVolume / Mute | Volume via `wpctl` |
+| XF86MonBrightnessUp / Down | Brightness via `brightnessctl` |
 
 Cursor changes to resize arrows when hovering near window edges. Dragging a tiled window promotes it to floating automatically.
 
