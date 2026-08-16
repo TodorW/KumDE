@@ -50,6 +50,10 @@ static void action_switch_workspace(struct kum_server *server, void *data)
 {
     int index = (int)(intptr_t)data;
     struct kum_output *output = kum_output_focused(server);
+    if (!output)
+        return;
+    if (output->active_workspace == index)
+        index = output->previous_workspace;
     kum_workspace_switch(server, output, index);
 }
 
