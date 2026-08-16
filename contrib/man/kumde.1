@@ -45,6 +45,12 @@ Monocle layout.
 .B Super+Space
 Toggle floating for focused window.
 .TP
+.B Super+Shift+f
+Toggle fullscreen for focused window.
+.TP
+.B Super+Shift+l
+Lock screen (spawns kumlock).
+.TP
 .B Super+Return
 Swap focused window with master.
 .TP
@@ -68,6 +74,12 @@ Next keyboard layout.
 .TP
 .B Super+Print
 Screenshot (saves to ~/Pictures/).
+.TP
+.B XF86AudioRaiseVolume / XF86AudioLowerVolume / XF86AudioMute
+Volume control via wpctl (no modifier).
+.TP
+.B XF86MonBrightnessUp / XF86MonBrightnessDown
+Brightness control via brightnessctl (no modifier).
 .SH IPC
 kumde exposes a Unix socket at
 .IR $XDG_RUNTIME_DIR/kumde-ipc .
