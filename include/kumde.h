@@ -131,6 +131,7 @@ struct kum_output {
     struct wlr_scene_output *scene_output;
     struct wlr_box           usable_area;
     int                      active_workspace;
+    int                      previous_workspace;
     struct wl_listener       frame;
     struct wl_listener       request_state;
     struct wl_listener       destroy;

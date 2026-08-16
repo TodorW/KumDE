@@ -112,7 +112,8 @@ void kum_workspace_switch(struct kum_server *server,
     struct kum_output *other;
     wl_list_for_each(other, &server->outputs, link) {
         if (other != output && other->active_workspace == index) {
-            other->active_workspace = prev;
+            other->previous_workspace = index;
+            other->active_workspace   = prev;
             wlr_scene_node_set_enabled(
                 &server->workspaces[prev].scene_tree->node, true);
             ipc_broadcast_workspace(server, other, prev);
@@ -123,7 +124,8 @@ void kum_workspace_switch(struct kum_server *server,
     wlr_scene_node_set_enabled(
         &server->workspaces[prev].scene_tree->node, false);
 
-    output->active_workspace = index;
+    output->previous_workspace = prev;
+    output->active_workspace   = index;
 
     wlr_scene_node_set_enabled(
         &server->workspaces[index].scene_tree->node, true);
