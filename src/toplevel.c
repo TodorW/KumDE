@@ -71,10 +71,12 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
             if (_o->active_workspace == toplevel->workspace) {
                 const char *_title = toplevel->xdg_toplevel->title
                     ? toplevel->xdg_toplevel->title : "";
+                char _title_esc[350];
+                kum_json_escape(_title_esc, sizeof(_title_esc), _title);
                 char _msg[400];
                 int _n = snprintf(_msg, sizeof(_msg),
-                    "{"event":"window_title","output":"%s","title":"%s"}\n",
-                    _o->wlr_output->name, _title);
+                    "{\"event\":\"window_title\",\"output\":\"%s\",\"title\":\"%s\"}\n",
+                    _o->wlr_output->name, _title_esc);
                 kum_ipc_broadcast(server, _msg, _n);
                 break;
             }
