@@ -290,11 +290,8 @@ static void request_maximize(struct wl_listener *listener, void *data)
     wlr_xdg_toplevel_set_maximized(tl->xdg_toplevel, true);
 }
 
-static void request_fullscreen(struct wl_listener *listener, void *data)
+void kum_toplevel_set_fullscreen(struct kum_toplevel *tl, bool fs)
 {
-    struct kum_toplevel *tl = wl_container_of(listener, tl, request_fullscreen);
-    bool fs = tl->xdg_toplevel->requested.fullscreen;
-
     if (fs) {
         struct kum_output *output = output_for_toplevel(tl);
         if (output) {
@@ -317,6 +314,17 @@ static void request_fullscreen(struct wl_listener *listener, void *data)
     }
 
     wlr_xdg_toplevel_set_fullscreen(tl->xdg_toplevel, fs);
+}
+
+void kum_toplevel_toggle_fullscreen(struct kum_toplevel *tl)
+{
+    kum_toplevel_set_fullscreen(tl, !tl->xdg_toplevel->current.fullscreen);
+}
+
+static void request_fullscreen(struct wl_listener *listener, void *data)
+{
+    struct kum_toplevel *tl = wl_container_of(listener, tl, request_fullscreen);
+    kum_toplevel_set_fullscreen(tl, tl->xdg_toplevel->requested.fullscreen);
 }
 
 static void set_title(struct wl_listener *listener, void *data)

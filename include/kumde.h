@@ -293,6 +293,8 @@ struct kum_output *kum_output_focused(struct kum_server *server);
 void kum_new_xdg_toplevel(struct wl_listener *listener, void *data);
 void kum_new_xdg_popup(struct wl_listener *listener, void *data);
 void kum_focus_toplevel(struct kum_toplevel *toplevel, struct wlr_surface *surface);
+void kum_toplevel_set_fullscreen(struct kum_toplevel *tl, bool fs);
+void kum_toplevel_toggle_fullscreen(struct kum_toplevel *tl);
 struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
     double lx, double ly, struct wlr_surface **surface,
     double *sx, double *sy);
