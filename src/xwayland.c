@@ -270,6 +270,9 @@ void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
     wlr_xwayland_surface_activate(xs->xwayland_surface, true);
     kum_xwayland_border_update(xs, true);
 
+    kum_ipc_broadcast_window_title(server, xs->workspace,
+        xs->xwayland_surface->title ? xs->xwayland_surface->title : "");
+
     struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
     if (kb)
         wlr_seat_keyboard_notify_enter(seat, surface,

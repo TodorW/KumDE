@@ -263,6 +263,26 @@ void kum_ipc_finish(struct kum_server *server)
     unlink(server->ipc.path);
 }
 
+void kum_ipc_broadcast_window_title(struct kum_server *server,
+    int workspace, const char *title)
+{
+    struct kum_output *o;
+    wl_list_for_each(o, &server->outputs, link) {
+        if (o->active_workspace != workspace)
+            continue;
+
+        char title_esc[350];
+        kum_json_escape(title_esc, sizeof(title_esc), title);
+
+        char msg[400];
+        int n = snprintf(msg, sizeof(msg),
+            "{\"event\":\"window_title\",\"output\":\"%s\",\"title\":\"%s\"}\n",
+            o->wlr_output->name, title_esc);
+        kum_ipc_broadcast(server, msg, n);
+        break;
+    }
+}
+
 void kum_ipc_broadcast_occupancy(struct kum_server *server)
 {
     bool occupied[KUM_WORKSPACE_COUNT] = {0};

@@ -102,23 +102,8 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
     server->focused = toplevel;
     toplevel->focus_serial = ++server->next_focus_serial;
 
-    {
-        struct kum_output *_o;
-        wl_list_for_each(_o, &server->outputs, link) {
-            if (_o->active_workspace == toplevel->workspace) {
-                const char *_title = toplevel->xdg_toplevel->title
-                    ? toplevel->xdg_toplevel->title : "";
-                char _title_esc[350];
-                kum_json_escape(_title_esc, sizeof(_title_esc), _title);
-                char _msg[400];
-                int _n = snprintf(_msg, sizeof(_msg),
-                    "{\"event\":\"window_title\",\"output\":\"%s\",\"title\":\"%s\"}\n",
-                    _o->wlr_output->name, _title_esc);
-                kum_ipc_broadcast(server, _msg, _n);
-                break;
-            }
-        }
-    }
+    kum_ipc_broadcast_window_title(server, toplevel->workspace,
+        toplevel->xdg_toplevel->title ? toplevel->xdg_toplevel->title : "");
 
     struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
     if (kb)

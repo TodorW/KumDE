@@ -367,6 +367,8 @@ void kum_ipc_init(struct kum_server *server);
 void kum_ipc_finish(struct kum_server *server);
 void kum_ipc_broadcast(struct kum_server *server, const char *msg, int len);
 void kum_ipc_broadcast_occupancy(struct kum_server *server);
+void kum_ipc_broadcast_window_title(struct kum_server *server,
+    int workspace, const char *title);
 void kum_json_escape(char *dst, size_t dst_size, const char *src);
 
 #ifdef KUM_XWAYLAND
