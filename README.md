@@ -101,6 +101,29 @@ On startup kumde launches a terminal (`terminal` in config), exports `WAYLAND_DI
 
 ---
 
+## Session integration
+
+The simplest way to start the companion daemons is kumde's own `autostart` config key (see `contrib/kumde.conf`) -- no session manager or systemd required:
+```
+autostart = kumbar
+autostart = kumclip
+autostart = kumnotify
+autostart = kumidle --lock-s 300 --dpms-s 360
+```
+
+If you'd rather manage them as systemd user services (independent restart/logging), unit files are in `contrib/systemd/`. They default to `ExecStart=%h/.local/bin/<binary>`, so either install with that prefix:
+```
+meson setup build --prefix="$HOME/.local"
+ninja -C build install
+```
+or edit the `ExecStart=` path in the unit file to match wherever you installed to. Then, per service:
+```
+systemctl --user enable --now kumbar.service
+```
+There is no unit file for `kumde` itself -- it's meant to be launched from a TTY or a display manager entry, not as a systemd service.
+
+---
+
 ## Configuration
 
 `$XDG_CONFIG_HOME/kumde/kumde.conf` or `~/.config/kumde/kumde.conf`. Example at `contrib/kumde.conf`.
