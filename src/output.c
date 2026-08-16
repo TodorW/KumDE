@@ -72,12 +72,27 @@ static void migrate_workspace(struct kum_server *server, int ws_index)
         kum_workspace_arrange(server, dst, ws_index);
 
     struct kum_toplevel *tl;
+    bool focused_someone = false;
     wl_list_for_each(tl, &server->workspaces[ws_index].toplevels, workspace_link) {
         if (tl->xdg_toplevel->base->surface->mapped) {
             kum_focus_toplevel(tl, tl->xdg_toplevel->base->surface);
+            focused_someone = true;
             break;
         }
     }
+#ifdef KUM_XWAYLAND
+    if (!focused_someone) {
+        struct kum_xwayland_surface *xs;
+        wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+            if (xs->workspace == ws_index && xs->xwayland_surface->surface->mapped) {
+                kum_focus_xwayland_surface(xs);
+                focused_someone = true;
+                break;
+            }
+        }
+    }
+#endif
+    (void)focused_someone;
 
     char msg[80];
     snprintf(msg, sizeof(msg),
