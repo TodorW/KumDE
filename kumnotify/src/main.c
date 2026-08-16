@@ -53,12 +53,15 @@ static struct {
     struct wl_registry         *registry;
     struct wl_compositor       *compositor;
     struct wl_shm              *shm;
+    struct wl_seat              *seat;
+    struct wl_pointer           *pointer;
     struct zwlr_layer_shell_v1 *layer_shell;
     struct wl_output           *output;
     notif_t  notifs[NOTIF_MAX];
     uint32_t next_id;
     int      sock_fd;
     bool     running;
+    struct wl_surface *pointer_surface;
 } app;
 
 static int64_t now_ms(void)
@@ -152,6 +155,59 @@ static void dismiss(notif_t *n)
     restack();
 }
 
+static void ptr_enter(void *d, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy)
+{
+    app.pointer_surface = surface;
+}
+static void ptr_leave(void *d, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surface)
+{
+    app.pointer_surface = NULL;
+}
+static void ptr_motion(void *d, struct wl_pointer *p, uint32_t time,
+    wl_fixed_t sx, wl_fixed_t sy) {}
+static void ptr_button(void *d, struct wl_pointer *p, uint32_t serial,
+    uint32_t time, uint32_t button, uint32_t state)
+{
+    if (state != WL_POINTER_BUTTON_STATE_PRESSED || !app.pointer_surface)
+        return;
+    for (int i = 0; i < NOTIF_MAX; i++) {
+        if (app.notifs[i].active && app.notifs[i].surface == app.pointer_surface) {
+            dismiss(&app.notifs[i]);
+            app.pointer_surface = NULL;
+            break;
+        }
+    }
+}
+static void ptr_axis(void *d, struct wl_pointer *p, uint32_t time,
+    uint32_t axis, wl_fixed_t value) {}
+static void ptr_frame(void *d, struct wl_pointer *p) {}
+static void ptr_axis_source(void *d, struct wl_pointer *p, uint32_t src) {}
+static void ptr_axis_stop(void *d, struct wl_pointer *p,
+    uint32_t time, uint32_t axis) {}
+static void ptr_axis_discrete(void *d, struct wl_pointer *p,
+    uint32_t axis, int32_t discrete) {}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter=ptr_enter, .leave=ptr_leave, .motion=ptr_motion,
+    .button=ptr_button, .axis=ptr_axis, .frame=ptr_frame,
+    .axis_source=ptr_axis_source, .axis_stop=ptr_axis_stop,
+    .axis_discrete=ptr_axis_discrete,
+};
+
+static void seat_caps(void *d, struct wl_seat *seat, uint32_t caps)
+{
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !app.pointer) {
+        app.pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(app.pointer, &pointer_listener, NULL);
+    }
+}
+static void seat_name(void *d, struct wl_seat *s, const char *n) {}
+static const struct wl_seat_listener seat_listener = {
+    .capabilities=seat_caps, .name=seat_name,
+};
+
 static void lsc_configure(void *d, struct zwlr_layer_surface_v1 *ls,
     uint32_t serial, uint32_t w, uint32_t h)
 {
@@ -226,6 +282,10 @@ static void reg_global(void *d, struct wl_registry *reg,
         app.shm=wl_registry_bind(reg,name,&wl_shm_interface,1);
     else if (!strcmp(iface,zwlr_layer_shell_v1_interface.name))
         app.layer_shell=wl_registry_bind(reg,name,&zwlr_layer_shell_v1_interface,1);
+    else if (!strcmp(iface,wl_seat_interface.name)) {
+        app.seat=wl_registry_bind(reg,name,&wl_seat_interface,7);
+        wl_seat_add_listener(app.seat,&seat_listener,NULL);
+    }
     else if (!strcmp(iface,wl_output_interface.name)&&!app.output) {
         app.output=wl_registry_bind(reg,name,&wl_output_interface,4);
         wl_output_add_listener(app.output,&wlo_listener,NULL);
