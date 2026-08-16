@@ -170,6 +170,15 @@ static void action_resize_down(struct kum_server *s, void *d)
 static void action_resize_up(struct kum_server *s, void *d)
 { kum_tiling_resize(s, 0, -40); }
 
+static void spawn_shell(const char *cmd)
+{
+    if (fork() == 0) {
+        setsid();
+        execl("/bin/sh", "sh", "-c", cmd, NULL);
+        _exit(1);
+    }
+}
+
 static void action_screenshot(struct kum_server *s, void *d)
 {
     if (fork() == 0) {
@@ -189,6 +198,26 @@ static void action_shutdown(struct kum_server *s, void *d)
     }
 }
 
+static void action_lock(struct kum_server *s, void *d)
+{
+    if (fork() == 0) {
+        setsid();
+        execlp("kumlock", "kumlock", NULL);
+        _exit(1);
+    }
+}
+
+static void action_volume_up(struct kum_server *s, void *d)
+{ spawn_shell("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"); }
+static void action_volume_down(struct kum_server *s, void *d)
+{ spawn_shell("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"); }
+static void action_volume_mute(struct kum_server *s, void *d)
+{ spawn_shell("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"); }
+static void action_brightness_up(struct kum_server *s, void *d)
+{ spawn_shell("brightnessctl set 5%+"); }
+static void action_brightness_down(struct kum_server *s, void *d)
+{ spawn_shell("brightnessctl set 5%-"); }
+
 void kum_keybind_setup_session(struct kum_server *server)
 {
     uint32_t mod   = KUM_MOD_KEY;
@@ -202,4 +231,11 @@ void kum_keybind_setup_session(struct kum_server *server)
     kum_keybind_register(server, mod_s, XKB_KEY_Up,    action_resize_up,    NULL);
     kum_keybind_register(server, mod,   XKB_KEY_Print, action_screenshot,   NULL);
     kum_keybind_register(server, mod_s, XKB_KEY_q,     action_shutdown,     NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_l,     action_lock,         NULL);
+
+    kum_keybind_register(server, 0, XKB_KEY_XF86AudioRaiseVolume, action_volume_up,   NULL);
+    kum_keybind_register(server, 0, XKB_KEY_XF86AudioLowerVolume, action_volume_down, NULL);
+    kum_keybind_register(server, 0, XKB_KEY_XF86AudioMute,        action_volume_mute, NULL);
+    kum_keybind_register(server, 0, XKB_KEY_XF86MonBrightnessUp,   action_brightness_up,   NULL);
+    kum_keybind_register(server, 0, XKB_KEY_XF86MonBrightnessDown, action_brightness_down, NULL);
 }
