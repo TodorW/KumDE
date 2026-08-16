@@ -23,6 +23,8 @@ static void xwayland_surface_map(struct wl_listener *listener, void *data)
         break;
     }
 
+    kum_rules_apply_xwayland(server, xs);
+
     kum_xwayland_border_create(xs);
     kum_xwayland_border_update(xs, false);
     xs->last_width  = xs->xwayland_surface->width;

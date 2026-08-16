@@ -110,3 +110,37 @@ void kum_rules_apply(struct kum_server *server, struct kum_toplevel *tl)
         break;
     }
 }
+
+#ifdef KUM_XWAYLAND
+void kum_rules_apply_xwayland(struct kum_server *server,
+    struct kum_xwayland_surface *xs)
+{
+    if (wl_list_empty(&server->rules)) return;
+
+    const char *app_id = xs->xwayland_surface->class ? xs->xwayland_surface->class : "";
+    const char *title  = xs->xwayland_surface->title ? xs->xwayland_surface->title : "";
+
+    struct kum_rule *r;
+    wl_list_for_each(r, &server->rules, link) {
+        bool ma = !r->app_id[0] || fnmatch(r->app_id, app_id, 0) == 0;
+        bool mt = !r->title[0]  || fnmatch(r->title,  title,  0) == 0;
+        if (!ma || !mt) continue;
+
+        if (r->workspace >= 0 && r->workspace < KUM_WORKSPACE_COUNT
+                && r->workspace != xs->workspace)
+            kum_workspace_move_xwayland_surface(server, xs, r->workspace);
+
+        if (r->w > 0 || r->h > 0 || r->x || r->y) {
+            int x = r->x ? r->x : xs->xwayland_surface->x;
+            int y = r->y ? r->y : xs->xwayland_surface->y;
+            int w = r->w > 0 ? r->w : xs->xwayland_surface->width;
+            int h = r->h > 0 ? r->h : xs->xwayland_surface->height;
+            wlr_xwayland_surface_configure(xs->xwayland_surface, x, y, w, h);
+            wlr_scene_node_set_position(&xs->scene_tree->node, x, y);
+        }
+        if (r->fullscreen)
+            kum_xwayland_set_fullscreen(xs, true);
+        break;
+    }
+}
+#endif

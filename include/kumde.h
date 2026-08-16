@@ -386,8 +386,6 @@ void kum_workspace_move_xwayland_surface(struct kum_server *server,
     struct kum_xwayland_surface *xs, int index);
 #endif
 
-#endif
-
 struct kum_rule {
     struct wl_list  link;
     char            app_id[128];
@@ -419,3 +417,10 @@ void kum_tiling_swap_master(struct kum_server *server);
 void kum_tiling_resize(struct kum_server *server, int dw, int dh);
 void kum_kb_layout_init(struct kum_server *server);
 void kum_keybind_setup_session(struct kum_server *server);
+
+#ifdef KUM_XWAYLAND
+void kum_rules_apply_xwayland(struct kum_server *server,
+    struct kum_xwayland_surface *xs);
+#endif
+
+#endif
