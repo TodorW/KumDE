@@ -134,14 +134,35 @@ void kum_workspace_switch(struct kum_server *server,
         server->focused = NULL;
         wlr_seat_keyboard_clear_focus(server->seat);
     }
+#ifdef KUM_XWAYLAND
+    if (server->focused_xwayland && server->focused_xwayland->workspace == prev) {
+        server->focused_xwayland = NULL;
+        wlr_seat_keyboard_clear_focus(server->seat);
+    }
+#endif
 
+    bool focused_someone = false;
     struct kum_toplevel *tl;
     wl_list_for_each(tl, &server->workspaces[index].toplevels, workspace_link) {
         if (tl->xdg_toplevel->base->surface->mapped) {
             kum_focus_toplevel(tl, tl->xdg_toplevel->base->surface);
+            focused_someone = true;
             break;
         }
     }
+#ifdef KUM_XWAYLAND
+    if (!focused_someone) {
+        struct kum_xwayland_surface *xs;
+        wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+            if (xs->workspace == index && xs->xwayland_surface->surface->mapped) {
+                kum_focus_xwayland_surface(xs);
+                focused_someone = true;
+                break;
+            }
+        }
+    }
+#endif
+    (void)focused_someone;
 
     ipc_broadcast_workspace(server, output, index);
     wlr_log(WLR_DEBUG, "workspace: %s -> %d", output->wlr_output->name, index);
