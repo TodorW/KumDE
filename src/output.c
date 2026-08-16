@@ -195,6 +195,8 @@ void kum_new_output(struct wl_listener *listener, void *data)
     wlr_scene_node_set_enabled(
         &server->workspaces[output->active_workspace].scene_tree->node, true);
 
+    kum_output_configure_all(server);
+
     wlr_log(WLR_INFO, "output connected: %s ws=%d",
         wlr_output->name, output->active_workspace);
 }
