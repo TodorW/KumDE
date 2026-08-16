@@ -136,9 +136,19 @@ Reload config at runtime: `kill -HUP $(pidof kumde)` or `kumde-msg reload`.
 | Super + Tab | Cycle window focus |
 | Super + Shift + c | Close focused window |
 | Super + t | Toggle tile / floating layout |
+| Super + m | Monocle layout |
 | Super + Space | Toggle focused window floating |
-| Super + 1–9 | Switch workspace on focused output |
+| Super + Shift + f | Toggle fullscreen on focused window |
+| Super + 1–9 | Switch workspace on focused output (press again to return to previous) |
 | Super + Shift + 1–9 | Move focused window to workspace |
+| Super + ` | Toggle scratchpad workspace |
+| Super + Left / Right / Up / Down | Focus adjacent output |
+| Super + Return | Swap focused window into master |
+| Super + Shift + Left / Right | Shrink / grow master pane (tiled) or window width (floating) |
+| Super + Shift + Up / Down | Shrink / grow window height (floating; no-op in tiled layout) |
+| Super + k | Cycle to next configured keyboard layout |
+| Super + Print | Screenshot (spawns `kumshot`) |
+| Super + Shift + q | Power off |
 
 Cursor changes to resize arrows when hovering near window edges. Dragging a tiled window promotes it to floating automatically.
 
