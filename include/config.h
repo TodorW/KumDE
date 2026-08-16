@@ -37,8 +37,6 @@
 
 #define KUM_IPC_SOCKET_NAME     "kumde-ipc"
 
-#endif
-
 #define KUM_KB_LAYOUT           "us"
 #define KUM_KB_VARIANT          ""
 #define KUM_KB_MODEL            ""
@@ -47,3 +45,5 @@
 #define KUM_NATURAL_SCROLL      false
 #define KUM_DISABLE_WHILE_TYPE  true
 #define KUM_POINTER_ACCEL       0.0f
+
+#endif
