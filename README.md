@@ -99,6 +99,8 @@ Nested inside an existing Wayland session for development:
 
 On startup kumde launches a terminal (`terminal` in config), exports `WAYLAND_DISPLAY` and `KUMDE_IPC`, and optionally starts Xwayland.
 
+`ninja -C build install` also installs a `wayland-sessions/kumde.desktop` entry, so display managers that scan that directory (greetd + a greeter, gdm, sddm, ...) can offer "KumDE" as a login session.
+
 ---
 
 ## Session integration
