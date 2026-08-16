@@ -184,7 +184,7 @@ Run before kumbar so it sits behind it on the layer stack.
 kumlock
 ```
 
-Locks all outputs using `ext-session-lock-v1`. Shows the time and a password dot indicator. Password verification stub is in `kumlock/src/main.c` — integrate with PAM for production use.
+Locks all outputs using `ext-session-lock-v1`. Shows the time and a password dot indicator. Password is verified against PAM (`login` service) in `kumlock/src/main.c`.
 
 ---
 
