@@ -41,13 +41,9 @@ void kum_tiling_resize(struct kum_server *server, int dw, int dh)
     struct kum_workspace *ws = &server->workspaces[tl->workspace];
 
     if (ws->layout == LAYOUT_TILE) {
-        float delta = (float)dw /
-            (server->focused->server->cfg.gap > 0
-                ? 1000.0f : 1000.0f);
         server->cfg.master_ratio += (float)dw / 2000.0f;
         if (server->cfg.master_ratio < 0.1f) server->cfg.master_ratio = 0.1f;
         if (server->cfg.master_ratio > 0.9f) server->cfg.master_ratio = 0.9f;
-        (void)delta;
 
         struct kum_output *output = NULL;
         struct kum_output *o;
