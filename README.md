@@ -2,7 +2,7 @@
 
 A minimal Wayland compositor written in C, built on [wlroots](https://gitlab.freedesktop.org/wlroots/wlroots).
 
-Ships with a full companion suite: status bar, app launcher, wallpaper client, screen lock, and a CLI tool for scripting.
+Ships with a full companion suite: status bar, app launcher, wallpaper client, screen lock, clipboard persistence, idle/DPMS/autolock daemon, notification daemon, screenshot tool, and a CLI tool for scripting.
 
 ---
 
@@ -15,6 +15,10 @@ Ships with a full companion suite: status bar, app launcher, wallpaper client, s
 | `kumlauncher` | App launcher |
 | `kumwall` | Wallpaper client |
 | `kumlock` | Screen lock |
+| `kumclip` | Clipboard persistence daemon |
+| `kumidle` | Idle / DPMS / autolock daemon |
+| `kumnotify` | Notification daemon |
+| `kumshot` | Screenshot tool |
 | `kumde-msg` | IPC CLI tool |
 
 ---
@@ -29,26 +33,30 @@ Ships with a full companion suite: status bar, app launcher, wallpaper client, s
 **kumde**
 - wlroots 0.17 or 0.18
 - libxkbcommon
+- libinput
 
-**kumbar, kumlauncher, kumwall, kumlock**
+**kumbar, kumlauncher, kumwall, kumlock, kumnotify, kumshot**
 - cairo
 - libxkbcommon (kumlauncher, kumlock)
 
+**kumlock**
+- libpam (PAM development headers, e.g. `pam` / `pam-devel` / `libpam0g-dev`)
+
 **Arch Linux**
 ```
-pacman -S wlroots wayland wayland-protocols libxkbcommon cairo meson ninja
+pacman -S wlroots wayland wayland-protocols libxkbcommon libinput cairo pam meson ninja
 ```
 
 **Debian / Ubuntu 24.04**
 ```
-apt install libwlroots-dev libwayland-dev libxkbcommon-dev \
-            libcairo2-dev wayland-protocols meson ninja-build
+apt install libwlroots-dev libwayland-dev libxkbcommon-dev libinput-dev \
+            libcairo2-dev libpam0g-dev wayland-protocols meson ninja-build
 ```
 
 **Fedora**
 ```
-dnf install wlroots-devel wayland-devel libxkbcommon-devel \
-            cairo-devel wayland-protocols-devel meson ninja-build
+dnf install wlroots-devel wayland-devel libxkbcommon-devel libinput-devel \
+            cairo-devel pam-devel wayland-protocols-devel meson ninja-build
 ```
 
 ---
