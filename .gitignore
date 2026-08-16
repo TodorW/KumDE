@@ -1,0 +1,15 @@
+# meson build directories
+build/
+build-*/
+subprojects/*/
+
+# editor/OS cruft
+*.swp
+*.swo
+*~
+.DS_Store
+
+# compiled objects, in case of stray non-meson builds
+*.o
+*.a
+*.so
