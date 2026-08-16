@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 struct kum_layer_surface {
+    struct wl_list                        link;
     struct wlr_layer_surface_v1          *wlr_layer_surface;
     struct wlr_scene_layer_surface_v1    *scene_layer;
     struct kum_server                    *server;
@@ -22,6 +23,9 @@ static struct kum_output *output_from_wlr(struct kum_server *server,
     return NULL;
 }
 
+/* Recomputes usable_area by folding the exclusive zone of every mapped
+ * layer-shell surface on this output, in layer order (background first,
+ * overlay last), instead of trusting a single surface's own commit. */
 static void recalculate_usable_area(struct kum_server *server,
     struct kum_output *output)
 {
@@ -31,15 +35,23 @@ static void recalculate_usable_area(struct kum_server *server,
 
     struct wlr_box usable = full;
 
-    struct wlr_scene_node *node;
-    wl_list_for_each(node, &server->scene->tree.children, link) {
-        if (node->type != WLR_SCENE_NODE_TREE)
-            continue;
+    for (int layer = 0; layer <= 3; layer++) {
+        struct kum_layer_surface *ls;
+        wl_list_for_each(ls, &server->layer_surfaces, link) {
+            if (ls->wlr_layer_surface->output != output->wlr_output)
+                continue;
+            if (!ls->wlr_layer_surface->surface->mapped)
+                continue;
+            if ((int)ls->wlr_layer_surface->current.layer != layer)
+                continue;
+            wlr_scene_layer_surface_v1_configure(ls->scene_layer,
+                &full, &usable);
+        }
     }
 
     output->usable_area = usable;
 
-    if (server->workspaces[output->active_workspace].layout == LAYOUT_TILE)
+    if (server->workspaces[output->active_workspace].layout != LAYOUT_FLOATING)
         kum_workspace_arrange(server, output, output->active_workspace);
 }
 
@@ -68,28 +80,27 @@ static void layer_commit(struct wl_listener *listener, void *data)
     if (!wlr_out)
         return;
 
-    struct wlr_box full, usable;
-    wlr_output_layout_get_box(ls->server->output_layout, wlr_out, &full);
-    usable = full;
-
-    wlr_scene_layer_surface_v1_configure(ls->scene_layer, &full, &usable);
-
     struct kum_output *output = output_from_wlr(ls->server, wlr_out);
-    if (output) {
-        output->usable_area = usable;
-        if (ls->server->workspaces[output->active_workspace].layout == LAYOUT_TILE)
-            kum_workspace_arrange(ls->server, output, output->active_workspace);
-    }
+    if (output)
+        recalculate_usable_area(ls->server, output);
 }
 
 static void layer_destroy(struct wl_listener *listener, void *data)
 {
     struct kum_layer_surface *ls = wl_container_of(listener, ls, destroy);
+    struct kum_server *server = ls->server;
+    struct kum_output *output = output_from_wlr(server,
+        ls->wlr_layer_surface->output);
+
     wl_list_remove(&ls->map.link);
     wl_list_remove(&ls->unmap.link);
     wl_list_remove(&ls->commit.link);
     wl_list_remove(&ls->destroy.link);
+    wl_list_remove(&ls->link);
     free(ls);
+
+    if (output)
+        recalculate_usable_area(server, output);
 }
 
 void kum_new_layer_surface(struct wl_listener *listener, void *data)
@@ -122,8 +133,14 @@ void kum_new_layer_surface(struct wl_listener *listener, void *data)
     wl_signal_add(&wlr_ls->surface->events.commit, &ls->commit);
     wl_signal_add(&wlr_ls->events.destroy,         &ls->destroy);
 
+    wl_list_insert(&server->layer_surfaces, &ls->link);
+
     struct wlr_box full, usable;
     wlr_output_layout_get_box(server->output_layout, wlr_ls->output, &full);
     usable = full;
     wlr_scene_layer_surface_v1_configure(ls->scene_layer, &full, &usable);
+
+    struct kum_output *output = output_from_wlr(server, wlr_ls->output);
+    if (output)
+        recalculate_usable_area(server, output);
 }

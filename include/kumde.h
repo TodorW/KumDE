@@ -153,6 +153,7 @@ struct kum_server {
     struct wl_list  keyboards;
     struct wl_list  keybinds;
     struct wl_list  ipc_clients;
+    struct wl_list  layer_surfaces;
 
     struct kum_workspace  workspaces[KUM_WORKSPACE_COUNT];
     struct kum_ipc        ipc;

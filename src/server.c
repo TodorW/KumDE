@@ -109,6 +109,7 @@ static void server_setup_shell(struct kum_server *server)
     wl_signal_add(&server->xdg_shell->events.new_popup,
         &server->new_xdg_popup);
 
+    wl_list_init(&server->layer_surfaces);
     server->layer_shell = wlr_layer_shell_v1_create(server->display,
         KUM_LAYER_SHELL_VERSION);
     server->new_layer_surface.notify = kum_new_layer_surface;
