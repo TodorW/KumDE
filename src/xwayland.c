@@ -154,12 +154,48 @@ static void xwayland_request_maximize(struct wl_listener *listener, void *data)
     }
 }
 
+void kum_xwayland_set_fullscreen(struct kum_xwayland_surface *xs, bool fs)
+{
+    if (fs) {
+        struct kum_output *output;
+        wl_list_for_each(output, &xs->server->outputs, link) {
+            if (output->active_workspace != xs->workspace)
+                continue;
+            xs->saved_geom.x      = xs->xwayland_surface->x;
+            xs->saved_geom.y      = xs->xwayland_surface->y;
+            xs->saved_geom.width  = xs->xwayland_surface->width;
+            xs->saved_geom.height = xs->xwayland_surface->height;
+
+            struct wlr_box full;
+            wlr_output_layout_get_box(xs->server->output_layout,
+                output->wlr_output, &full);
+            wlr_xwayland_surface_configure(xs->xwayland_surface,
+                full.x, full.y, full.width, full.height);
+            wlr_scene_node_set_position(&xs->scene_tree->node,
+                full.x, full.y);
+            break;
+        }
+    } else if (xs->saved_geom.width > 0) {
+        wlr_xwayland_surface_configure(xs->xwayland_surface,
+            xs->saved_geom.x, xs->saved_geom.y,
+            xs->saved_geom.width, xs->saved_geom.height);
+        wlr_scene_node_set_position(&xs->scene_tree->node,
+            xs->saved_geom.x, xs->saved_geom.y);
+    }
+
+    wlr_xwayland_surface_set_fullscreen(xs->xwayland_surface, fs);
+}
+
+void kum_xwayland_toggle_fullscreen(struct kum_xwayland_surface *xs)
+{
+    kum_xwayland_set_fullscreen(xs, !xs->xwayland_surface->fullscreen);
+}
+
 static void xwayland_request_fullscreen(struct wl_listener *listener, void *data)
 {
     struct kum_xwayland_surface *xs =
         wl_container_of(listener, xs, request_fullscreen);
-    wlr_xwayland_surface_set_fullscreen(xs->xwayland_surface,
-        xs->xwayland_surface->fullscreen);
+    kum_xwayland_set_fullscreen(xs, xs->xwayland_surface->fullscreen);
 }
 
 static void xwayland_set_title(struct wl_listener *listener, void *data)

@@ -274,6 +274,7 @@ struct kum_xwayland_surface {
     int                           grab_x;
     int                           grab_y;
     struct wlr_box                grab_geobox;
+    struct wlr_box                saved_geom;
     int                           last_width;
     int                           last_height;
     struct wl_listener            map;
@@ -376,6 +377,8 @@ void kum_xwayland_shadow_create(struct kum_xwayland_surface *xs);
 void kum_xwayland_shadow_destroy(struct kum_xwayland_surface *xs);
 void kum_xwayland_corners_apply(struct kum_xwayland_surface *xs);
 void kum_xwayland_corners_destroy(struct kum_xwayland_surface *xs);
+void kum_xwayland_set_fullscreen(struct kum_xwayland_surface *xs, bool fs);
+void kum_xwayland_toggle_fullscreen(struct kum_xwayland_surface *xs);
 #endif
 
 #endif
