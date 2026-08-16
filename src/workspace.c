@@ -202,15 +202,31 @@ void kum_workspace_move_toplevel(struct kum_server *server,
         wlr_seat_keyboard_clear_focus(server->seat);
 
         if (src) {
+            bool focused_someone = false;
             struct kum_toplevel *next;
             wl_list_for_each(next, &server->workspaces[old_ws].toplevels,
                     workspace_link) {
                 if (next->xdg_toplevel->base->surface->mapped) {
                     kum_focus_toplevel(next,
                         next->xdg_toplevel->base->surface);
+                    focused_someone = true;
                     break;
                 }
             }
+#ifdef KUM_XWAYLAND
+            if (!focused_someone) {
+                struct kum_xwayland_surface *xs;
+                wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+                    if (xs->workspace == old_ws &&
+                            xs->xwayland_surface->surface->mapped) {
+                        kum_focus_xwayland_surface(xs);
+                        focused_someone = true;
+                        break;
+                    }
+                }
+            }
+#endif
+            (void)focused_someone;
         }
     }
 
