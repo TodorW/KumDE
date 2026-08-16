@@ -16,6 +16,7 @@ static void usage(const char *a)
         "  move-to <n>         move focused window to workspace N\n"
         "  close               close focused window\n"
         "  layout tile|float|monocle\n"
+        "  launch <cmd...>     spawn a command via kumde\n"
         "  quit                quit kumde\n"
         "  reload              reload config\n"
         "  subscribe           stream events to stdout\n"
@@ -108,8 +109,18 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    char msg[256];
-    if (!strcmp(cmd,"workspace") && argc>=3) {
+    char msg[512];
+    if (!strcmp(cmd,"launch") && argc>=3) {
+        char exec[400] = {0};
+        size_t len = 0;
+        for (int i = 2; i < argc; i++) {
+            int n = snprintf(exec+len, sizeof(exec)-len, "%s%s",
+                i>2 ? " " : "", argv[i]);
+            if (n < 0 || (size_t)n >= sizeof(exec)-len) break;
+            len += (size_t)n;
+        }
+        snprintf(msg,sizeof(msg),"{\"cmd\":\"launch\",\"exec\":\"%s\"}\n",exec);
+    } else if (!strcmp(cmd,"workspace") && argc>=3) {
         snprintf(msg,sizeof(msg),"{\"cmd\":\"workspace\",\"index\":%d}\n",atoi(argv[2])-1);
     } else if (!strcmp(cmd,"move-to") && argc>=3) {
         snprintf(msg,sizeof(msg),"{\"cmd\":\"move_to\",\"index\":%d}\n",atoi(argv[2])-1);

@@ -91,6 +91,19 @@ static void ipc_handle_command(struct kum_ipc_client *client, const char *msg)
         } else {
             ipc_reply(client, "{\"ok\":false,\"error\":\"no output\"}\n");
         }
+    } else if (strcmp(cmd, "launch") == 0) {
+        char exec[256] = {0};
+        sscanf(msg, "{\"cmd\":\"launch\",\"exec\":\"%255[^\"]", exec);
+        if (exec[0]) {
+            if (fork() == 0) {
+                setsid();
+                execl("/bin/sh", "sh", "-c", exec, NULL);
+                _exit(1);
+            }
+            ipc_reply(client, "{\"ok\":true}\n");
+        } else {
+            ipc_reply(client, "{\"ok\":false,\"error\":\"missing exec\"}\n");
+        }
     } else if (strcmp(cmd, "quit") == 0) {
         ipc_reply(client, "{\"ok\":true}\n");
         wl_display_terminate(server->display);
