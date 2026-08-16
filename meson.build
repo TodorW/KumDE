@@ -83,6 +83,9 @@ install_data(
   'contrib/desktop/kumnotify.desktop',
   install_dir : get_option('datadir') / 'applications')
 
+install_data('contrib/desktop/kumde.desktop',
+  install_dir : get_option('datadir') / 'wayland-sessions')
+
 subdir('kumbar')
 subdir('kumlauncher')
 subdir('kumwall')

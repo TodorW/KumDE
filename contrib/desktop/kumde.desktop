@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=KumDE
+Comment=A minimal Wayland compositor
+Exec=kumde
+Type=Application
+DesktopNames=kumde
