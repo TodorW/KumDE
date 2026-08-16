@@ -136,22 +136,43 @@ static void xwayland_request_resize(struct wl_listener *listener, void *data)
     xs->grab_geobox.height = xs->xwayland_surface->height;
 }
 
+static void xwayland_set_maximized(struct kum_xwayland_surface *xs, bool want)
+{
+    if (want) {
+        struct kum_output *output;
+        wl_list_for_each(output, &xs->server->outputs, link) {
+            if (output->active_workspace != xs->workspace)
+                continue;
+            xs->saved_geom.x      = xs->xwayland_surface->x;
+            xs->saved_geom.y      = xs->xwayland_surface->y;
+            xs->saved_geom.width  = xs->xwayland_surface->width;
+            xs->saved_geom.height = xs->xwayland_surface->height;
+
+            struct wlr_box area = output->usable_area;
+            wlr_xwayland_surface_configure(xs->xwayland_surface,
+                area.x, area.y, area.width, area.height);
+            wlr_scene_node_set_position(&xs->scene_tree->node,
+                area.x, area.y);
+            break;
+        }
+    } else if (xs->saved_geom.width > 0) {
+        wlr_xwayland_surface_configure(xs->xwayland_surface,
+            xs->saved_geom.x, xs->saved_geom.y,
+            xs->saved_geom.width, xs->saved_geom.height);
+        wlr_scene_node_set_position(&xs->scene_tree->node,
+            xs->saved_geom.x, xs->saved_geom.y);
+    }
+
+    wlr_xwayland_surface_set_maximized(xs->xwayland_surface, want);
+}
+
 static void xwayland_request_maximize(struct wl_listener *listener, void *data)
 {
     struct kum_xwayland_surface *xs =
         wl_container_of(listener, xs, request_maximize);
-
-    struct kum_output *o;
-    wl_list_for_each(o, &xs->server->outputs, link) {
-        struct wlr_box box;
-        wlr_output_layout_get_box(xs->server->output_layout,
-            o->wlr_output, &box);
-        wlr_xwayland_surface_set_maximized(xs->xwayland_surface, true);
-        wlr_xwayland_surface_configure(xs->xwayland_surface,
-            box.x, box.y, box.width, box.height);
-        wlr_scene_node_set_position(&xs->scene_tree->node, box.x, box.y);
-        break;
-    }
+    bool want = xs->xwayland_surface->maximized_horz ||
+        xs->xwayland_surface->maximized_vert;
+    xwayland_set_maximized(xs, want);
 }
 
 void kum_xwayland_set_fullscreen(struct kum_xwayland_surface *xs, bool fs)
