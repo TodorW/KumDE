@@ -52,6 +52,14 @@ typedef enum {
     LAYOUT_MONOCLE,
 } kum_layout_mode;
 
+/* Leading member of both kum_toplevel and kum_xwayland_surface so any
+ * scene_tree->node.data can be safely identified before it is cast --
+ * the two structs are never stored in the same wl_list. */
+typedef enum {
+    KUM_NODE_XDG = 0,
+    KUM_NODE_XWAYLAND,
+} kum_node_kind;
+
 typedef struct {
     kum_anim_type   type;
     struct timespec start;
@@ -180,10 +188,12 @@ struct kum_server {
     struct wlr_xwayland      *xwayland;
     struct wl_listener        xwayland_ready;
     struct wl_listener        new_xwayland_surface;
+    struct wl_list            xwayland_surfaces;
 #endif
 };
 
 struct kum_toplevel {
+    kum_node_kind            kind;
     struct wl_list           link;
     struct wl_list           workspace_link;
     struct kum_server       *server;
@@ -247,6 +257,7 @@ struct kum_ipc_client {
 
 #ifdef KUM_XWAYLAND
 struct kum_xwayland_surface {
+    kum_node_kind                 kind;
     struct wl_list                link;
     struct kum_server            *server;
     struct wlr_xwayland_surface  *xwayland_surface;
@@ -284,6 +295,9 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel, struct wlr_surface *surfa
 struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
     double lx, double ly, struct wlr_surface **surface,
     double *sx, double *sy);
+void *kum_scene_node_at(struct kum_server *server,
+    double lx, double ly, struct wlr_surface **surface,
+    double *sx, double *sy, kum_node_kind *kind_out);
 
 void kum_new_input(struct wl_listener *listener, void *data);
 void kum_cursor_motion(struct wl_listener *listener, void *data);
@@ -345,6 +359,7 @@ void kum_json_escape(char *dst, size_t dst_size, const char *src);
 #ifdef KUM_XWAYLAND
 void kum_xwayland_init(struct kum_server *server);
 void kum_xwayland_finish(struct kum_server *server);
+void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs);
 #endif
 
 #endif

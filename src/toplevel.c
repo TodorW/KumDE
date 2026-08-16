@@ -2,9 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
+/* scene_tree->node.data points at either a struct kum_toplevel or (when
+ * XWayland is enabled) a struct kum_xwayland_surface; both begin with a
+ * kum_node_kind tag so the real type can be identified before casting. */
+struct kum_node_tag {
+    kum_node_kind kind;
+};
+
+void *kum_scene_node_at(struct kum_server *server,
     double lx, double ly, struct wlr_surface **surface,
-    double *sx, double *sy)
+    double *sx, double *sy, kum_node_kind *kind_out)
 {
     struct wlr_scene_node *node =
         wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
@@ -23,7 +30,24 @@ struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
     while (tree && tree->node.data == NULL)
         tree = tree->node.parent;
 
-    return tree ? tree->node.data : NULL;
+    if (!tree || !tree->node.data)
+        return NULL;
+
+    if (kind_out)
+        *kind_out = ((struct kum_node_tag *)tree->node.data)->kind;
+
+    return tree->node.data;
+}
+
+struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
+    double lx, double ly, struct wlr_surface **surface,
+    double *sx, double *sy)
+{
+    kum_node_kind kind;
+    void *data = kum_scene_node_at(server, lx, ly, surface, sx, sy, &kind);
+    if (!data || kind != KUM_NODE_XDG)
+        return NULL;
+    return data;
 }
 
 void kum_focus_toplevel(struct kum_toplevel *toplevel,
@@ -312,6 +336,7 @@ void kum_new_xdg_toplevel(struct wl_listener *listener, void *data)
     int ws = output ? output->active_workspace : 0;
 
     struct kum_toplevel *tl = calloc(1, sizeof(*tl));
+    tl->kind         = KUM_NODE_XDG;
     tl->server       = server;
     tl->xdg_toplevel = wlr_tl;
     tl->workspace    = ws;
