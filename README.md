@@ -186,6 +186,14 @@ Cursor changes to resize arrows when hovering near window edges. Dragging a tile
 
 ---
 
+## XWayland
+
+Build with `-Dxwayland=enabled` (see Building above) to run X11 applications. X11 windows get the same borders, drop shadows and rounded corners as native windows, can be focused/moved/resized with the mouse, and are included in Super+Tab focus cycling. Close, fullscreen toggle, and move-to-workspace (Super+Shift+c / Super+Shift+f / Super+Shift+1-9, and their `kumde-msg` equivalents) all work on whichever window -- native or X11 -- currently has focus. Maximize and fullscreen requests from the X11 client itself are also honored.
+
+The one deliberate difference: **XWayland windows always float.** They don't participate in the master-stack or monocle tiling layouts, and `Super+t`/`Super+Space` (tile/floating toggle) has no effect on them -- they behave like typical X11 windows floating on top of whatever tiled layout is underneath.
+
+---
+
 ## kumbar
 
 Attach to running kumde:
