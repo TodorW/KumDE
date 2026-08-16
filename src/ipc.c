@@ -81,6 +81,9 @@ static void ipc_handle_command(struct kum_ipc_client *client, const char *msg)
             if (strcmp(mode, "tile") == 0) {
                 server->workspaces[idx].layout = LAYOUT_TILE;
                 kum_workspace_arrange(server, output, idx);
+            } else if (strcmp(mode, "monocle") == 0) {
+                server->workspaces[idx].layout = LAYOUT_MONOCLE;
+                kum_workspace_arrange(server, output, idx);
             } else {
                 server->workspaces[idx].layout = LAYOUT_FLOATING;
             }
