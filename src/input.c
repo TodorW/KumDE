@@ -189,6 +189,59 @@ static void process_cursor_motion(struct kum_server *server, uint32_t time)
         return;
     }
 
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *xgrabbed = NULL;
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (xs->grabbed) {
+            xgrabbed = xs;
+            break;
+        }
+    }
+
+    if (xgrabbed) {
+        double dx = server->cursor->x - xgrabbed->grab_x;
+        double dy = server->cursor->y - xgrabbed->grab_y;
+
+        if (xgrabbed->resize_edges == WLR_EDGE_NONE) {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "grabbing");
+            wlr_scene_node_set_position(&xgrabbed->scene_tree->node,
+                xgrabbed->grab_geobox.x + (int)dx,
+                xgrabbed->grab_geobox.y + (int)dy);
+        } else {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
+                cursor_name_for_edges(xgrabbed->resize_edges));
+
+            int new_x = xgrabbed->grab_geobox.x;
+            int new_y = xgrabbed->grab_geobox.y;
+            int new_w = xgrabbed->grab_geobox.width;
+            int new_h = xgrabbed->grab_geobox.height;
+
+            if (xgrabbed->resize_edges & WLR_EDGE_LEFT) {
+                new_x += (int)dx;
+                new_w -= (int)dx;
+            } else if (xgrabbed->resize_edges & WLR_EDGE_RIGHT) {
+                new_w += (int)dx;
+            }
+            if (xgrabbed->resize_edges & WLR_EDGE_TOP) {
+                new_y += (int)dy;
+                new_h -= (int)dy;
+            } else if (xgrabbed->resize_edges & WLR_EDGE_BOTTOM) {
+                new_h += (int)dy;
+            }
+
+            if (new_w < KUM_RESIZE_MIN_W) new_w = KUM_RESIZE_MIN_W;
+            if (new_h < KUM_RESIZE_MIN_H) new_h = KUM_RESIZE_MIN_H;
+
+            wlr_scene_node_set_position(&xgrabbed->scene_tree->node,
+                new_x, new_y);
+            wlr_xwayland_surface_configure(xgrabbed->xwayland_surface,
+                new_x, new_y, new_w, new_h);
+        }
+        return;
+    }
+#endif
+
     double sx, sy;
     struct wlr_surface *surface = NULL;
     struct kum_toplevel *under = kum_toplevel_at(server,
@@ -247,16 +300,28 @@ void kum_cursor_button(struct wl_listener *listener, void *data)
         struct kum_toplevel *tl;
         wl_list_for_each(tl, &server->toplevels, link)
             tl->grabbed = false;
+#ifdef KUM_XWAYLAND
+        struct kum_xwayland_surface *xs;
+        wl_list_for_each(xs, &server->xwayland_surfaces, link)
+            xs->grabbed = false;
+#endif
         return;
     }
 
     double sx, sy;
     struct wlr_surface *surface = NULL;
-    struct kum_toplevel *tl = kum_toplevel_at(server,
-        server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    kum_node_kind kind;
+    void *hit = kum_scene_node_at(server,
+        server->cursor->x, server->cursor->y, &surface, &sx, &sy, &kind);
 
-    if (tl)
-        kum_focus_toplevel(tl, surface);
+    if (hit && kind == KUM_NODE_XDG) {
+        kum_focus_toplevel(hit, surface);
+    }
+#ifdef KUM_XWAYLAND
+    else if (hit && kind == KUM_NODE_XWAYLAND) {
+        kum_focus_xwayland_surface(hit);
+    }
+#endif
 }
 
 void kum_cursor_axis(struct wl_listener *listener, void *data)
