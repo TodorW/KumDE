@@ -363,6 +363,9 @@ void kum_json_escape(char *dst, size_t dst_size, const char *src);
 void kum_xwayland_init(struct kum_server *server);
 void kum_xwayland_finish(struct kum_server *server);
 void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs);
+void kum_xwayland_border_create(struct kum_xwayland_surface *xs);
+void kum_xwayland_border_update(struct kum_xwayland_surface *xs, bool focused);
+void kum_xwayland_border_destroy(struct kum_xwayland_surface *xs);
 #endif
 
 #endif
