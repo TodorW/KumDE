@@ -57,9 +57,10 @@ void kum_server_reload_config(struct kum_server *server)
         kum_border_update(tl, tl == server->focused);
         kum_shadow_destroy(tl);
         kum_corners_destroy(tl);
-        if (tl->xdg_toplevel->base->surface->mapped)
+        if (tl->xdg_toplevel->base->surface->mapped) {
             kum_shadow_create(tl);
             kum_corners_apply(tl);
+        }
     }
 
     struct kum_output *output;
