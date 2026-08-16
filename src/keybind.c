@@ -8,12 +8,39 @@ static void action_quit(struct kum_server *server, void *data)
 
 static void action_cycle_focus(struct kum_server *server, void *data)
 {
-    if (wl_list_length(&server->toplevels) < 2)
-        return;
+    struct kum_toplevel *best_tl = NULL;
+    uint64_t best_serial = UINT64_MAX;
 
-    struct kum_toplevel *next =
-        wl_container_of(server->toplevels.prev, next, link);
-    kum_focus_toplevel(next, next->xdg_toplevel->base->surface);
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &server->toplevels, link) {
+        if (!tl->xdg_toplevel->base->surface->mapped)
+            continue;
+        if (tl->focus_serial < best_serial) {
+            best_serial = tl->focus_serial;
+            best_tl     = tl;
+        }
+    }
+
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *best_xs = NULL;
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (!xs->xwayland_surface->surface->mapped)
+            continue;
+        if (xs->focus_serial < best_serial) {
+            best_serial = xs->focus_serial;
+            best_xs     = xs;
+            best_tl     = NULL;
+        }
+    }
+    if (best_xs) {
+        kum_focus_xwayland_surface(best_xs);
+        return;
+    }
+#endif
+
+    if (best_tl)
+        kum_focus_toplevel(best_tl, best_tl->xdg_toplevel->base->surface);
 }
 
 static void action_close_focused(struct kum_server *server, void *data)

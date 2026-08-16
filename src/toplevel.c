@@ -100,6 +100,7 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
         server->cfg.anim_focus_ms);
     kum_border_update(toplevel, true);
     server->focused = toplevel;
+    toplevel->focus_serial = ++server->next_focus_serial;
 
     {
         struct kum_output *_o;

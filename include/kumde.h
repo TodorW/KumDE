@@ -184,6 +184,7 @@ struct kum_server {
     struct kum_toplevel *focused;
     struct wl_list       rules;
     int                  scratchpad_ws;
+    uint64_t             next_focus_serial;
 
 #ifdef KUM_XWAYLAND
     struct wlr_xwayland      *xwayland;
@@ -196,6 +197,7 @@ struct kum_server {
 
 struct kum_toplevel {
     kum_node_kind            kind;
+    uint64_t                 focus_serial;
     struct wl_list           link;
     struct wl_list           workspace_link;
     struct kum_server       *server;
@@ -260,6 +262,7 @@ struct kum_ipc_client {
 #ifdef KUM_XWAYLAND
 struct kum_xwayland_surface {
     kum_node_kind                 kind;
+    uint64_t                      focus_serial;
     struct wl_list                link;
     struct kum_server            *server;
     struct wlr_xwayland_surface  *xwayland_surface;

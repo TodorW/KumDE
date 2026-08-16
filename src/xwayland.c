@@ -259,6 +259,7 @@ void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
 
     server->focused           = NULL;
     server->focused_xwayland  = xs;
+    xs->focus_serial          = ++server->next_focus_serial;
 
     wlr_scene_node_raise_to_top(&xs->scene_tree->node);
     wlr_xwayland_surface_activate(xs->xwayland_surface, true);
