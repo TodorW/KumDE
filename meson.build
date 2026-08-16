@@ -77,6 +77,10 @@ install_data(
   'contrib/desktop/kumlauncher.desktop',
   'contrib/desktop/kumshot.desktop',
   'contrib/desktop/kumlock.desktop',
+  'contrib/desktop/kumbar.desktop',
+  'contrib/desktop/kumclip.desktop',
+  'contrib/desktop/kumidle.desktop',
+  'contrib/desktop/kumnotify.desktop',
   install_dir : get_option('datadir') / 'applications')
 
 subdir('kumbar')
