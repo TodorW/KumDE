@@ -43,6 +43,10 @@ struct kumbar_output {
     bool                         configured;
     bool                         dirty;
     char                         focused_title[256];
+    /* x-ranges of each drawn workspace box, filled in during render;
+     * x1 <= x0 means that workspace wasn't drawn (not clickable). */
+    int                           ws_box_x0[KUMBAR_WS_COUNT];
+    int                           ws_box_x1[KUMBAR_WS_COUNT];
 };
 
 struct kumbar {
@@ -50,11 +54,16 @@ struct kumbar {
     struct wl_registry              *registry;
     struct wl_compositor            *compositor;
     struct wl_shm                   *shm;
+    struct wl_seat                  *seat;
+    struct wl_pointer               *pointer;
     struct zwlr_layer_shell_v1      *layer_shell;
     struct zxdg_output_manager_v1  *xdg_output_manager;
 
     struct wl_list  outputs;
     bool            running;
+
+    struct kumbar_output *pointer_output;
+    double                pointer_x;
 
     int             ipc_fd;
     time_t          ipc_last_attempt;
