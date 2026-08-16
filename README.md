@@ -153,7 +153,43 @@ There is no unit file for `kumde` itself -- it's meant to be launched from a TTY
 | `corner_radius` | `8` | Corner radius in pixels |
 | `xwayland` | `false` | Enable XWayland |
 
-Reload config at runtime: `kill -HUP $(pidof kumde)` or `kumde-msg reload`.
+Reload config at runtime: `kill -HUP $(pidof kumde)` or `kumde-msg reload`. Reload re-reads every key above plus `[input]`, `[output NAME]` and `[rules]` below and re-applies them live -- nothing requires a restart except `terminal`, `xwayland`, and `autostart` (those only run once, at startup).
+
+Three additional sections, all optional:
+
+**`[rules]`** -- auto-assign workspace/floating/size/position/fullscreen per window, matched by glob against app_id (or WM_CLASS for XWayland) and/or title. First matching rule wins per window.
+```
+[rules]
+rule = app_id:firefox, workspace:2
+rule = app_id:steam, floating:true
+rule = title:*Picture-in-Picture*, floating:true, size:640x360
+```
+
+**`[input]`** -- libinput device settings, applied to every pointer device.
+```
+[input]
+tap_to_click       = true
+natural_scroll     = false
+disable_while_typing = true
+pointer_accel      = 0.0
+kb_layout          = us
+kb_variant         =
+kb_model           =
+kb_options         =
+```
+`kb_layout` accepts a comma-separated list (`us,rs`); Super+k cycles through them at runtime.
+
+**`[output NAME]`** -- one section per output (name from `wlr-randr` / `kumde-msg subscribe`'s output field), applied when that output connects and on every reload.
+```
+[output DP-1]
+mode      = 1920x1080@60
+pos       = 0,0
+scale     = 1.0
+transform = normal
+enabled   = true
+```
+
+A section ends at the next `[...]` header (or end of file), so keep global keys and `autostart` lines above the first section header -- see `contrib/kumde.conf`.
 
 ---
 
