@@ -39,4 +39,14 @@ void kum_output_focus_adjacent(struct kum_server *server, int dx, int dy)
             return;
         }
     }
+
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (xs->workspace == ws && xs->xwayland_surface->surface->mapped) {
+            kum_focus_xwayland_surface(xs);
+            return;
+        }
+    }
+#endif
 }
