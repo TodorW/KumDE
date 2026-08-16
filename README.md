@@ -161,7 +161,7 @@ Attach to running kumde:
 kumbar
 ```
 
-Displays workspace indicators and a clock. Workspace indicators update in real time via the IPC socket. Redraws every second for clock accuracy.
+Displays workspace indicators, the focused window's title, and a clock. Workspace indicators update in real time via the IPC socket and are clickable -- left-click a workspace number to switch to it. Redraws every second for clock accuracy.
 
 ---
 
@@ -206,6 +206,53 @@ Locks all outputs using `ext-session-lock-v1`. Shows the time and a password dot
 
 ---
 
+## kumclip
+
+```
+kumclip
+```
+
+Runs in the background and takes ownership of the Wayland selection whenever a client sets one, keeping the last copied text alive after the source application closes (clipboard persistence). Text-only (`text/plain`, `text/plain;charset=utf-8`, `UTF8_STRING`, `STRING`).
+
+---
+
+## kumidle
+
+```
+kumidle --idle-cmd 'kumwall -c 0 0 0' --lock-cmd kumlock --resume-cmd 'kumwall -i ~/wall.png'
+```
+
+Watches for seat idle via `ext-idle-notify-v1` and runs commands at three configurable thresholds (`--idle-s 300`, `--lock-s 310`, `--dpms-s 330` by default): an idle command, a lock command (defaults to `kumlock`), and output power off/on via `wlr-randr` at the DPMS threshold. `--resume-cmd` runs once activity resumes after the idle threshold.
+
+---
+
+## kumnotify
+
+```
+kumnotify
+```
+
+A small notification daemon: listens on a Unix datagram socket (`$XDG_RUNTIME_DIR/kumnotify.sock`) and pops up layer-shell notification bubbles in the top-right corner, stacked and auto-dismissed after a timeout (or on click). Drive it with `kumde-msg notify`:
+
+```
+kumde-msg notify myapp "Build finished" "All tests passed" 1 5000
+```
+
+---
+
+## kumshot
+
+```
+kumshot                      # screenshot the primary output to ~/Pictures/kumshot_TIMESTAMP.png
+kumshot -s DP-1               # screenshot a specific output by name
+kumshot -a                    # composite all outputs into one image
+kumshot -o /path/to/out.png   # explicit output path
+```
+
+Captures via `wlr-screencopy-unstable-v1` and writes a PNG.
+
+---
+
 ## kumde-msg
 
 Script or bind kumde commands from the shell. `KUMDE_IPC` is exported automatically.
@@ -216,8 +263,12 @@ kumde-msg move-to 5          # move focused window to workspace 5
 kumde-msg close              # close focused window
 kumde-msg layout tile        # set tile layout on focused output
 kumde-msg layout float       # set floating layout
+kumde-msg layout monocle     # set monocle layout
+kumde-msg launch foot        # spawn a command via kumde
 kumde-msg reload             # reload config (same as SIGHUP)
 kumde-msg quit               # quit kumde
+kumde-msg subscribe          # stream IPC events (workspace/occupancy/title/kb_layout) to stdout
+kumde-msg notify app "Title" "Body" 1 5000   # send a desktop-style notification to kumnotify
 ```
 
 ---
