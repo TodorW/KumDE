@@ -136,13 +136,21 @@ static void action_layout_monocle(struct kum_server *s, void *d)
     kum_workspace_arrange(s, o, idx);
 }
 
+static void action_toggle_fullscreen(struct kum_server *s, void *d)
+{
+    if (!s->focused) return;
+    kum_toplevel_toggle_fullscreen(s->focused);
+}
+
 void kum_keybind_setup_extended(struct kum_server *server)
 {
     uint32_t mod = KUM_MOD_KEY;
+    uint32_t mod_s = KUM_MOD_KEY | WLR_MODIFIER_SHIFT;
     kum_keybind_register(server, mod, XKB_KEY_Left,  action_focus_left,     NULL);
     kum_keybind_register(server, mod, XKB_KEY_Right, action_focus_right,    NULL);
     kum_keybind_register(server, mod, XKB_KEY_Up,    action_focus_up,       NULL);
     kum_keybind_register(server, mod, XKB_KEY_Down,  action_focus_down,     NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_f,   action_toggle_fullscreen, NULL);
     kum_keybind_register(server, mod, XKB_KEY_grave, action_scratchpad,     NULL);
     kum_keybind_register(server, mod, XKB_KEY_m,     action_layout_monocle, NULL);
 }
