@@ -71,8 +71,17 @@ static int do_subscribe(int fd)
 static void send_notify(const char *app_n, const char *sum,
     const char *body, int urg, int timeout_ms)
 {
+    char path_buf[256];
     const char *path = getenv("KUMNOTIFY_SOCK");
-    if (!path) { fprintf(stderr,"kumde-msg: KUMNOTIFY_SOCK not set\n"); return; }
+    if (!path) {
+        const char *runtime = getenv("XDG_RUNTIME_DIR");
+        if (!runtime) {
+            fprintf(stderr,"kumde-msg: XDG_RUNTIME_DIR not set\n");
+            return;
+        }
+        snprintf(path_buf, sizeof(path_buf), "%s/kumnotify.sock", runtime);
+        path = path_buf;
+    }
     int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
     if (fd < 0) return;
     struct sockaddr_un addr = {0};
