@@ -46,45 +46,58 @@ static uint32_t *build_shadow_texture(int w, int h, int radius, float alpha)
     return pixels;
 }
 
-void kum_shadow_create(struct kum_toplevel *toplevel)
+static struct wlr_scene_buffer *shadow_build(struct wlr_scene_tree *tree,
+    struct wlr_renderer *renderer, struct kum_runtime_config *cfg,
+    int w, int h)
 {
-    if (!toplevel->server->cfg.shadows)
-        return;
+    if (!cfg->shadows)
+        return NULL;
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
+    int sr = cfg->shadow_radius;
+    int sw = w + sr * 2;
+    int sh = h + sr * 2;
 
-    int sr  = toplevel->server->cfg.shadow_radius;
-    int sw  = geo.width  + sr * 2;
-    int sh  = geo.height + sr * 2;
-
-    uint32_t *pixels = build_shadow_texture(sw, sh, sr,
-        toplevel->server->cfg.shadow_alpha);
+    uint32_t *pixels = build_shadow_texture(sw, sh, sr, cfg->shadow_alpha);
     if (!pixels)
-        return;
-
-    struct wlr_renderer *renderer = toplevel->server->renderer;
+        return NULL;
 
     struct wlr_texture *tex = wlr_texture_from_pixels(renderer,
         DRM_FORMAT_ARGB8888, sw * 4, sw, sh, pixels);
     free(pixels);
-
     if (!tex)
-        return;
+        return NULL;
 
-    toplevel->shadow_buf = wlr_scene_buffer_create(toplevel->scene_tree, NULL);
-    if (!toplevel->shadow_buf) {
+    struct wlr_scene_buffer *buf = wlr_scene_buffer_create(tree, NULL);
+    if (!buf) {
         wlr_texture_destroy(tex);
-        return;
+        return NULL;
     }
 
-    wlr_scene_buffer_set_texture(toplevel->shadow_buf, tex);
+    wlr_scene_buffer_set_texture(buf, tex);
     wlr_texture_destroy(tex);
 
-    int ox = toplevel->server->cfg.shadow_offset_x - sr;
-    int oy = toplevel->server->cfg.shadow_offset_y - sr;
-    wlr_scene_node_set_position(&toplevel->shadow_buf->node, ox, oy);
-    wlr_scene_node_lower_to_bottom(&toplevel->shadow_buf->node);
+    int ox = cfg->shadow_offset_x - sr;
+    int oy = cfg->shadow_offset_y - sr;
+    wlr_scene_node_set_position(&buf->node, ox, oy);
+    wlr_scene_node_lower_to_bottom(&buf->node);
+    return buf;
+}
+
+static void shadow_destroy_buf(struct wlr_scene_buffer **buf)
+{
+    if (*buf) {
+        wlr_scene_node_destroy(&(*buf)->node);
+        *buf = NULL;
+    }
+}
+
+void kum_shadow_create(struct kum_toplevel *toplevel)
+{
+    struct wlr_box geo;
+    wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
+    toplevel->shadow_buf = shadow_build(toplevel->scene_tree,
+        toplevel->server->renderer, &toplevel->server->cfg,
+        geo.width, geo.height);
 }
 
 void kum_shadow_update(struct kum_toplevel *toplevel)
@@ -98,8 +111,19 @@ void kum_shadow_update(struct kum_toplevel *toplevel)
 
 void kum_shadow_destroy(struct kum_toplevel *toplevel)
 {
-    if (toplevel->shadow_buf) {
-        wlr_scene_node_destroy(&toplevel->shadow_buf->node);
-        toplevel->shadow_buf = NULL;
-    }
+    shadow_destroy_buf(&toplevel->shadow_buf);
 }
+
+#ifdef KUM_XWAYLAND
+void kum_xwayland_shadow_create(struct kum_xwayland_surface *xs)
+{
+    xs->shadow_buf = shadow_build(xs->scene_tree, xs->server->renderer,
+        &xs->server->cfg, xs->xwayland_surface->width,
+        xs->xwayland_surface->height);
+}
+
+void kum_xwayland_shadow_destroy(struct kum_xwayland_surface *xs)
+{
+    shadow_destroy_buf(&xs->shadow_buf);
+}
+#endif

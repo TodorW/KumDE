@@ -264,6 +264,8 @@ struct kum_xwayland_surface {
     struct wlr_xwayland_surface  *xwayland_surface;
     struct wlr_scene_tree        *scene_tree;
     struct wlr_scene_rect        *border[4];
+    struct wlr_scene_buffer      *shadow_buf;
+    struct wlr_scene_buffer      *corner_mask_buf;
     kum_animation                 anim;
     int                           workspace;
     bool                          grabbed;
@@ -366,6 +368,10 @@ void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs);
 void kum_xwayland_border_create(struct kum_xwayland_surface *xs);
 void kum_xwayland_border_update(struct kum_xwayland_surface *xs, bool focused);
 void kum_xwayland_border_destroy(struct kum_xwayland_surface *xs);
+void kum_xwayland_shadow_create(struct kum_xwayland_surface *xs);
+void kum_xwayland_shadow_destroy(struct kum_xwayland_surface *xs);
+void kum_xwayland_corners_apply(struct kum_xwayland_surface *xs);
+void kum_xwayland_corners_destroy(struct kum_xwayland_surface *xs);
 #endif
 
 #endif
