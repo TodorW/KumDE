@@ -18,9 +18,14 @@ static void action_cycle_focus(struct kum_server *server, void *data)
 
 static void action_close_focused(struct kum_server *server, void *data)
 {
-    if (!server->focused)
+    if (server->focused) {
+        wlr_xdg_toplevel_send_close(server->focused->xdg_toplevel);
         return;
-    wlr_xdg_toplevel_send_close(server->focused->xdg_toplevel);
+    }
+#ifdef KUM_XWAYLAND
+    if (server->focused_xwayland)
+        wlr_xwayland_surface_close(server->focused_xwayland->xwayland_surface);
+#endif
 }
 
 static void action_toggle_floating(struct kum_server *server, void *data)
@@ -138,8 +143,14 @@ static void action_layout_monocle(struct kum_server *s, void *d)
 
 static void action_toggle_fullscreen(struct kum_server *s, void *d)
 {
-    if (!s->focused) return;
-    kum_toplevel_toggle_fullscreen(s->focused);
+    if (s->focused) {
+        kum_toplevel_toggle_fullscreen(s->focused);
+        return;
+    }
+#ifdef KUM_XWAYLAND
+    if (s->focused_xwayland)
+        kum_xwayland_toggle_fullscreen(s->focused_xwayland);
+#endif
 }
 
 void kum_keybind_setup_extended(struct kum_server *server)

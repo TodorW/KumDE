@@ -69,6 +69,11 @@ static void ipc_handle_command(struct kum_ipc_client *client, const char *msg)
         if (server->focused) {
             wlr_xdg_toplevel_send_close(server->focused->xdg_toplevel);
             ipc_reply(client, "{\"ok\":true}\n");
+#ifdef KUM_XWAYLAND
+        } else if (server->focused_xwayland) {
+            wlr_xwayland_surface_close(server->focused_xwayland->xwayland_surface);
+            ipc_reply(client, "{\"ok\":true}\n");
+#endif
         } else {
             ipc_reply(client, "{\"ok\":false,\"error\":\"no focused window\"}\n");
         }
