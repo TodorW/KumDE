@@ -128,6 +128,42 @@ static void xwayland_set_title(struct wl_listener *listener, void *data)
         xs->xwayland_surface->title ? xs->xwayland_surface->title : "(null)");
 }
 
+void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
+{
+    struct kum_server *server = xs->server;
+    struct wlr_seat   *seat   = server->seat;
+    struct wlr_surface *surface = xs->xwayland_surface->surface;
+    struct wlr_surface *prev  = seat->keyboard_state.focused_surface;
+
+    if (prev == surface)
+        return;
+
+    if (prev) {
+        struct wlr_xdg_surface *prev_xdg =
+            wlr_xdg_surface_try_from_wlr_surface(prev);
+        if (prev_xdg && prev_xdg->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
+            wlr_xdg_toplevel_set_activated(prev_xdg->toplevel, false);
+            struct kum_toplevel *t;
+            wl_list_for_each(t, &server->toplevels, link) {
+                if (t->xdg_toplevel->base->surface == prev) {
+                    kum_border_update(t, false);
+                    break;
+                }
+            }
+        }
+    }
+
+    server->focused = NULL;
+
+    wlr_scene_node_raise_to_top(&xs->scene_tree->node);
+    wlr_xwayland_surface_activate(xs->xwayland_surface, true);
+
+    struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
+    if (kb)
+        wlr_seat_keyboard_notify_enter(seat, surface,
+            kb->keycodes, kb->num_keycodes, &kb->modifiers);
+}
+
 static void handle_new_xwayland_surface(struct wl_listener *listener,
     void *data)
 {
@@ -135,10 +171,14 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
         wl_container_of(listener, server, new_xwayland_surface);
     struct wlr_xwayland_surface   *wlr_xs = data;
 
+    struct kum_output *output = kum_output_focused(server);
+    int ws = output ? output->active_workspace : 0;
+
     struct kum_xwayland_surface *xs = calloc(1, sizeof(*xs));
+    xs->kind             = KUM_NODE_XWAYLAND;
     xs->server           = server;
     xs->xwayland_surface = wlr_xs;
-    xs->workspace        = server->active_workspace;
+    xs->workspace        = ws;
 
     xs->scene_tree = wlr_scene_tree_create(
         server->workspaces[xs->workspace].scene_tree);
@@ -167,7 +207,7 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
     wl_signal_add(&wlr_xs->events.request_fullscreen, &xs->request_fullscreen);
     wl_signal_add(&wlr_xs->events.set_title,       &xs->set_title);
 
-    wl_list_insert(&server->toplevels, &xs->link);
+    wl_list_insert(&server->xwayland_surfaces, &xs->link);
 }
 
 static void handle_xwayland_ready(struct wl_listener *listener, void *data)
@@ -190,6 +230,8 @@ static void handle_xwayland_ready(struct wl_listener *listener, void *data)
 
 void kum_xwayland_init(struct kum_server *server)
 {
+    wl_list_init(&server->xwayland_surfaces);
+
     server->xwayland = wlr_xwayland_create(server->display,
         wlr_compositor_from_server(server->display), false);
 
