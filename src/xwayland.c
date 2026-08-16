@@ -23,6 +23,13 @@ static void xwayland_surface_map(struct wl_listener *listener, void *data)
         break;
     }
 
+    kum_xwayland_border_create(xs);
+    kum_xwayland_border_update(xs, false);
+    xs->last_width  = xs->xwayland_surface->width;
+    xs->last_height = xs->xwayland_surface->height;
+    kum_xwayland_shadow_create(xs);
+    kum_xwayland_corners_apply(xs);
+
     kum_anim_start(&xs->anim, ANIM_OPENING, 0.0f, 1.0f,
         server->cfg.anim_open_ms);
 
@@ -36,8 +43,35 @@ static void xwayland_surface_unmap(struct wl_listener *listener, void *data)
     struct kum_xwayland_surface *xs =
         wl_container_of(listener, xs, unmap);
 
+    if (xs->server->focused_xwayland == xs)
+        xs->server->focused_xwayland = NULL;
+
     kum_anim_start(&xs->anim, ANIM_CLOSING, 1.0f, 0.0f,
         xs->server->cfg.anim_close_ms);
+
+    kum_xwayland_border_destroy(xs);
+    kum_xwayland_shadow_destroy(xs);
+    kum_xwayland_corners_destroy(xs);
+}
+
+static void xwayland_surface_commit(struct wl_listener *listener, void *data)
+{
+    struct kum_xwayland_surface *xs =
+        wl_container_of(listener, xs, commit);
+
+    if (!xs->xwayland_surface->surface->mapped)
+        return;
+
+    kum_xwayland_border_update(xs, xs->server->focused_xwayland == xs);
+
+    int w = xs->xwayland_surface->width;
+    int h = xs->xwayland_surface->height;
+    if (w != xs->last_width || h != xs->last_height) {
+        xs->last_width  = w;
+        xs->last_height = h;
+        kum_xwayland_shadow_create(xs);
+        kum_xwayland_corners_apply(xs);
+    }
 }
 
 static void xwayland_surface_destroy(struct wl_listener *listener, void *data)
@@ -45,8 +79,16 @@ static void xwayland_surface_destroy(struct wl_listener *listener, void *data)
     struct kum_xwayland_surface *xs =
         wl_container_of(listener, xs, destroy);
 
+    if (xs->server->focused_xwayland == xs)
+        xs->server->focused_xwayland = NULL;
+
+    kum_xwayland_border_destroy(xs);
+    kum_xwayland_shadow_destroy(xs);
+    kum_xwayland_corners_destroy(xs);
+
     wl_list_remove(&xs->map.link);
     wl_list_remove(&xs->unmap.link);
+    wl_list_remove(&xs->commit.link);
     wl_list_remove(&xs->destroy.link);
     wl_list_remove(&xs->request_move.link);
     wl_list_remove(&xs->request_resize.link);
@@ -150,13 +192,20 @@ void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
                     break;
                 }
             }
+        } else if (server->focused_xwayland &&
+                server->focused_xwayland->xwayland_surface->surface == prev) {
+            wlr_xwayland_surface_activate(
+                server->focused_xwayland->xwayland_surface, false);
+            kum_xwayland_border_update(server->focused_xwayland, false);
         }
     }
 
-    server->focused = NULL;
+    server->focused           = NULL;
+    server->focused_xwayland  = xs;
 
     wlr_scene_node_raise_to_top(&xs->scene_tree->node);
     wlr_xwayland_surface_activate(xs->xwayland_surface, true);
+    kum_xwayland_border_update(xs, true);
 
     struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
     if (kb)
@@ -191,6 +240,7 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
 
     xs->map.notify               = xwayland_surface_map;
     xs->unmap.notify             = xwayland_surface_unmap;
+    xs->commit.notify            = xwayland_surface_commit;
     xs->destroy.notify           = xwayland_surface_destroy;
     xs->request_move.notify      = xwayland_request_move;
     xs->request_resize.notify    = xwayland_request_resize;
@@ -200,6 +250,7 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
 
     wl_signal_add(&wlr_xs->surface->events.map,    &xs->map);
     wl_signal_add(&wlr_xs->surface->events.unmap,  &xs->unmap);
+    wl_signal_add(&wlr_xs->surface->events.commit, &xs->commit);
     wl_signal_add(&wlr_xs->events.destroy,         &xs->destroy);
     wl_signal_add(&wlr_xs->events.request_move,    &xs->request_move);
     wl_signal_add(&wlr_xs->events.request_resize,  &xs->request_resize);

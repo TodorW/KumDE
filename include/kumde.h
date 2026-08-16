@@ -190,6 +190,7 @@ struct kum_server {
     struct wl_listener        xwayland_ready;
     struct wl_listener        new_xwayland_surface;
     struct wl_list            xwayland_surfaces;
+    struct kum_xwayland_surface *focused_xwayland;
 #endif
 };
 
@@ -273,8 +274,11 @@ struct kum_xwayland_surface {
     int                           grab_x;
     int                           grab_y;
     struct wlr_box                grab_geobox;
+    int                           last_width;
+    int                           last_height;
     struct wl_listener            map;
     struct wl_listener            unmap;
+    struct wl_listener            commit;
     struct wl_listener            destroy;
     struct wl_listener            request_move;
     struct wl_listener            request_resize;

@@ -76,7 +76,19 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
                 }
             }
         }
+#ifdef KUM_XWAYLAND
+        else if (server->focused_xwayland &&
+                server->focused_xwayland->xwayland_surface->surface == prev) {
+            wlr_xwayland_surface_activate(
+                server->focused_xwayland->xwayland_surface, false);
+            kum_xwayland_border_update(server->focused_xwayland, false);
+        }
+#endif
     }
+
+#ifdef KUM_XWAYLAND
+    server->focused_xwayland = NULL;
+#endif
 
     wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
     wl_list_remove(&toplevel->link);
