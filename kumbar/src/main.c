@@ -72,11 +72,17 @@ static void render_workspaces(cairo_t *cr, struct kumbar_output *output)
     int cell = KUMBAR_HEIGHT - 10;
 
     for (int i = 0; i < KUMBAR_WS_COUNT; i++) {
+        output->ws_box_x0[i] = 0;
+        output->ws_box_x1[i] = 0;
+
         bool active   = (i == output->active_ws);
         bool occupied = output->occupied_ws[i];
 
         if (!active && !occupied)
             continue;
+
+        output->ws_box_x0[i] = x - 4;
+        output->ws_box_x1[i] = x + cell + 4;
 
         if (active) {
             cairo_set_source_rgba(cr,
@@ -439,6 +445,93 @@ static void setup_layer_surface(struct kumbar *bar,
     wl_surface_commit(output->surface);
 }
 
+static void ptr_enter(void *data, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy)
+{
+    struct kumbar *bar = data;
+    struct kumbar_output *o;
+    bar->pointer_output = NULL;
+    wl_list_for_each(o, &bar->outputs, link) {
+        if (o->surface == surface) {
+            bar->pointer_output = o;
+            bar->pointer_x = wl_fixed_to_double(sx);
+            break;
+        }
+    }
+}
+
+static void ptr_leave(void *data, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surface)
+{
+    struct kumbar *bar = data;
+    bar->pointer_output = NULL;
+}
+
+static void ptr_motion(void *data, struct wl_pointer *p, uint32_t time,
+    wl_fixed_t sx, wl_fixed_t sy)
+{
+    struct kumbar *bar = data;
+    bar->pointer_x = wl_fixed_to_double(sx);
+}
+
+static void ptr_button(void *data, struct wl_pointer *p, uint32_t serial,
+    uint32_t time, uint32_t button, uint32_t state)
+{
+    struct kumbar *bar = data;
+    if (state != WL_POINTER_BUTTON_STATE_PRESSED) return;
+    if (!bar->pointer_output || bar->ipc_fd < 0) return;
+
+    struct kumbar_output *o = bar->pointer_output;
+    int x = (int)bar->pointer_x;
+
+    for (int i = 0; i < KUMBAR_WS_COUNT; i++) {
+        if (o->ws_box_x1[i] <= o->ws_box_x0[i]) continue;
+        if (x < o->ws_box_x0[i] || x >= o->ws_box_x1[i]) continue;
+
+        char msg[64];
+        int n = snprintf(msg, sizeof(msg),
+            "{\"cmd\":\"workspace\",\"index\":%d}\n", i);
+        send(bar->ipc_fd, msg, (size_t)n, MSG_NOSIGNAL | MSG_DONTWAIT);
+        break;
+    }
+}
+
+static void ptr_axis(void *data, struct wl_pointer *p, uint32_t time,
+    uint32_t axis, wl_fixed_t value) {}
+static void ptr_frame(void *data, struct wl_pointer *p) {}
+static void ptr_axis_source(void *data, struct wl_pointer *p, uint32_t src) {}
+static void ptr_axis_stop(void *data, struct wl_pointer *p,
+    uint32_t time, uint32_t axis) {}
+static void ptr_axis_discrete(void *data, struct wl_pointer *p,
+    uint32_t axis, int32_t discrete) {}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter         = ptr_enter,
+    .leave         = ptr_leave,
+    .motion        = ptr_motion,
+    .button        = ptr_button,
+    .axis          = ptr_axis,
+    .frame         = ptr_frame,
+    .axis_source   = ptr_axis_source,
+    .axis_stop     = ptr_axis_stop,
+    .axis_discrete = ptr_axis_discrete,
+};
+
+static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t caps)
+{
+    struct kumbar *bar = data;
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !bar->pointer) {
+        bar->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(bar->pointer, &pointer_listener, bar);
+    }
+}
+static void seat_name(void *data, struct wl_seat *seat, const char *name) {}
+
+static const struct wl_seat_listener seat_listener = {
+    .capabilities = seat_capabilities,
+    .name         = seat_name,
+};
+
 static void registry_global(void *data, struct wl_registry *registry,
     uint32_t name, const char *iface, uint32_t version)
 {
@@ -449,6 +542,9 @@ static void registry_global(void *data, struct wl_registry *registry,
             &wl_compositor_interface, 4);
     } else if (strcmp(iface, wl_shm_interface.name) == 0) {
         bar->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+    } else if (strcmp(iface, wl_seat_interface.name) == 0) {
+        bar->seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
+        wl_seat_add_listener(bar->seat, &seat_listener, bar);
     } else if (strcmp(iface, zwlr_layer_shell_v1_interface.name) == 0) {
         bar->layer_shell = wl_registry_bind(registry, name,
             &zwlr_layer_shell_v1_interface, 1);
