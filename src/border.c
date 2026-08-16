@@ -1,17 +1,15 @@
 #include "kumde.h"
 
-static const float COLOR_INACTIVE[4] = {
-    KUM_BORDER_INACTIVE_R,
-    KUM_BORDER_INACTIVE_G,
-    KUM_BORDER_INACTIVE_B,
-    KUM_BORDER_ALPHA,
-};
-
 void kum_border_create(struct kum_toplevel *toplevel)
 {
+    struct kum_runtime_config *cfg = &toplevel->server->cfg;
+    float color[4] = {
+        cfg->border_inactive[0], cfg->border_inactive[1],
+        cfg->border_inactive[2], KUM_BORDER_ALPHA,
+    };
     for (int i = 0; i < 4; i++) {
         toplevel->border[i] = wlr_scene_rect_create(
-            toplevel->scene_tree, 0, 0, COLOR_INACTIVE);
+            toplevel->scene_tree, 0, 0, color);
     }
 }
 
@@ -20,12 +18,14 @@ void kum_border_update(struct kum_toplevel *toplevel, bool focused)
     if (!toplevel->xdg_toplevel->base->surface->mapped)
         return;
 
+    struct kum_runtime_config *cfg = &toplevel->server->cfg;
+
     struct wlr_box geo;
     wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
 
     int w = geo.width;
     int h = geo.height;
-    int b = KUM_BORDER_WIDTH;
+    int b = cfg->border_width;
 
     wlr_scene_node_set_position(&toplevel->border[0]->node, -b, -b);
     wlr_scene_rect_set_size(toplevel->border[0], w + 2 * b, b);
@@ -45,14 +45,14 @@ void kum_border_update(struct kum_toplevel *toplevel, bool focused)
 
     float color[4];
     if (focused) {
-        color[0] = KUM_BORDER_INACTIVE_R + (KUM_BORDER_ACTIVE_R - KUM_BORDER_INACTIVE_R) * t;
-        color[1] = KUM_BORDER_INACTIVE_G + (KUM_BORDER_ACTIVE_G - KUM_BORDER_INACTIVE_G) * t;
-        color[2] = KUM_BORDER_INACTIVE_B + (KUM_BORDER_ACTIVE_B - KUM_BORDER_INACTIVE_B) * t;
+        color[0] = cfg->border_inactive[0] + (cfg->border_active[0] - cfg->border_inactive[0]) * t;
+        color[1] = cfg->border_inactive[1] + (cfg->border_active[1] - cfg->border_inactive[1]) * t;
+        color[2] = cfg->border_inactive[2] + (cfg->border_active[2] - cfg->border_inactive[2]) * t;
         color[3] = KUM_BORDER_ALPHA;
     } else {
-        color[0] = KUM_BORDER_INACTIVE_R;
-        color[1] = KUM_BORDER_INACTIVE_G;
-        color[2] = KUM_BORDER_INACTIVE_B;
+        color[0] = cfg->border_inactive[0];
+        color[1] = cfg->border_inactive[1];
+        color[2] = cfg->border_inactive[2];
         color[3] = KUM_BORDER_ALPHA;
     }
 
