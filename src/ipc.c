@@ -271,6 +271,13 @@ void kum_ipc_broadcast_occupancy(struct kum_server *server)
         if (tl->workspace >= 0 && tl->workspace < KUM_WORKSPACE_COUNT)
             occupied[tl->workspace] = true;
     }
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (xs->workspace >= 0 && xs->workspace < KUM_WORKSPACE_COUNT)
+            occupied[xs->workspace] = true;
+    }
+#endif
 
     char msg[256];
     int  pos = 0;

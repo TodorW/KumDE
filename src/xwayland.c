@@ -36,6 +36,7 @@ static void xwayland_surface_map(struct wl_listener *listener, void *data)
         server->cfg.anim_open_ms);
 
     wlr_scene_node_set_enabled(&xs->scene_tree->node, true);
+    kum_ipc_broadcast_occupancy(server);
     wlr_log(WLR_DEBUG, "xwayland: mapped '%s'",
         xs->xwayland_surface->title ? xs->xwayland_surface->title : "(null)");
 }
@@ -50,6 +51,8 @@ static void xwayland_surface_unmap(struct wl_listener *listener, void *data)
 
     kum_anim_start(&xs->anim, ANIM_CLOSING, 1.0f, 0.0f,
         xs->server->cfg.anim_close_ms);
+
+    kum_ipc_broadcast_occupancy(xs->server);
 
     kum_xwayland_border_destroy(xs);
     kum_xwayland_shadow_destroy(xs);
