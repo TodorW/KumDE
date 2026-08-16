@@ -51,6 +51,20 @@ void kum_server_reload_config(struct kum_server *server)
     server->cfg.shadow_offset_y  = fresh.shadow_offset_y;
     server->cfg.shadows          = fresh.shadows;
     server->cfg.rounded_corners  = fresh.rounded_corners;
+    server->cfg.focus_follows_mouse = fresh.focus_follows_mouse;
+
+    strncpy(server->cfg.kb_layout,  fresh.kb_layout,  sizeof(server->cfg.kb_layout)  - 1);
+    strncpy(server->cfg.kb_variant, fresh.kb_variant, sizeof(server->cfg.kb_variant) - 1);
+    strncpy(server->cfg.kb_model,   fresh.kb_model,   sizeof(server->cfg.kb_model)   - 1);
+    strncpy(server->cfg.kb_options, fresh.kb_options, sizeof(server->cfg.kb_options) - 1);
+    server->cfg.tap_to_click         = fresh.tap_to_click;
+    server->cfg.natural_scroll       = fresh.natural_scroll;
+    server->cfg.disable_while_typing = fresh.disable_while_typing;
+    server->cfg.pointer_accel        = fresh.pointer_accel;
+
+    server->cfg.output_config_count = fresh.output_config_count;
+    memcpy(server->cfg.output_configs, fresh.output_configs,
+        sizeof(server->cfg.output_configs));
 
     struct kum_toplevel *tl;
     wl_list_for_each(tl, &server->toplevels, link) {
@@ -68,6 +82,10 @@ void kum_server_reload_config(struct kum_server *server)
         if (server->workspaces[output->active_workspace].layout == LAYOUT_TILE)
             kum_workspace_arrange(server, output, output->active_workspace);
     }
+
+    kum_input_configure(server);
+    kum_kb_layout_init(server);
+    kum_output_configure_all(server);
 
     kum_rules_free(server);
     kum_rules_load(server, path);
