@@ -196,6 +196,32 @@ void kum_workspace_move_toplevel(struct kum_server *server,
     wlr_log(WLR_DEBUG, "workspace: moved toplevel to %d", index);
 }
 
+#ifdef KUM_XWAYLAND
+void kum_workspace_move_xwayland_surface(struct kum_server *server,
+    struct kum_xwayland_surface *xs, int index)
+{
+    if (index < 0 || index >= KUM_WORKSPACE_COUNT)
+        return;
+    if (index == xs->workspace)
+        return;
+
+    wlr_scene_node_reparent(&xs->scene_tree->node,
+        server->workspaces[index].scene_tree);
+    xs->workspace = index;
+
+    struct kum_output *dst = output_for_workspace(server, index);
+    if (!dst)
+        wlr_scene_node_set_enabled(&xs->scene_tree->node, false);
+
+    if (server->focused_xwayland == xs) {
+        server->focused_xwayland = NULL;
+        wlr_seat_keyboard_clear_focus(server->seat);
+    }
+
+    wlr_log(WLR_DEBUG, "workspace: moved xwayland surface to %d", index);
+}
+#endif
+
 void kum_workspace_toggle_layout(struct kum_server *server,
     struct kum_output *output)
 {

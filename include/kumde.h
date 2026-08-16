@@ -379,6 +379,8 @@ void kum_xwayland_corners_apply(struct kum_xwayland_surface *xs);
 void kum_xwayland_corners_destroy(struct kum_xwayland_surface *xs);
 void kum_xwayland_set_fullscreen(struct kum_xwayland_surface *xs, bool fs);
 void kum_xwayland_toggle_fullscreen(struct kum_xwayland_surface *xs);
+void kum_workspace_move_xwayland_surface(struct kum_server *server,
+    struct kum_xwayland_surface *xs, int index);
 #endif
 
 #endif
