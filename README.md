@@ -285,21 +285,33 @@ kumde/
 │   ├── main.c
 │   ├── server.c         init, run, SIGHUP reload
 │   ├── output.c         output management, hotplug migration
+│   ├── outputcfg.c      per-output mode/position/scale/transform config
 │   ├── toplevel.c       window lifecycle, fullscreen, maximize
 │   ├── input.c          keyboard, pointer, edge cursor hints
+│   ├── inputcfg.c       libinput device configuration
 │   ├── keybind.c        keybind registry and actions
 │   ├── border.c         window border decorations
+│   ├── shadow.c         drop shadow textures
+│   ├── corners.c        rounded corner masks
 │   ├── anim.c           animation engine
 │   ├── layer.c          layer-shell, usable area
 │   ├── workspace.c      per-output workspaces, tiling
+│   ├── tiling.c         master-stack resize, swap master
+│   ├── focus.c          multi-output focus navigation
+│   ├── rules.c          window rules (app_id/title match)
 │   ├── conf.c           config file parser
-│   ├── shadow.c         drop shadow textures
+│   ├── kblayout.c       runtime keyboard layout switching
+│   ├── autostart.c      autostart command execution
 │   ├── ipc.c            Unix socket server, command dispatch
 │   └── xwayland.c       XWayland (conditional)
 ├── kumbar/src/main.c    status bar
 ├── kumlauncher/src/main.c
 ├── kumwall/src/main.c
 ├── kumlock/src/main.c
+├── kumclip/src/main.c
+├── kumidle/src/main.c
+├── kumnotify/src/main.c
+├── kumshot/src/main.c
 └── tools/kumde-msg.c
 ```
 
@@ -310,12 +322,14 @@ kumde/
 | Protocol | Used by |
 |---|---|
 | xdg-shell v3 | kumde |
-| wlr-layer-shell-unstable-v1 | kumde, kumbar, kumlauncher, kumwall |
+| wlr-layer-shell-unstable-v1 | kumde, kumbar, kumlauncher, kumwall, kumnotify |
 | ext-session-lock-v1 | kumlock |
+| ext-idle-notify-v1 | kumidle |
 | xdg-decoration-unstable-v1 | kumde |
-| wlr-screencopy-unstable-v1 | kumde |
+| wlr-screencopy-unstable-v1 | kumde, kumshot |
 | wp-viewporter | kumde |
 | primary-selection-unstable-v1 | kumde |
+| wl_data_device_manager (core) | kumclip |
 | xdg-output-unstable-v1 | kumbar |
 
 ---
