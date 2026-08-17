@@ -391,7 +391,14 @@ static void output_create_lock_surface(struct lock_surface *ls)
         app.lock, ls->surface, ls->wl_output);
     ext_session_lock_surface_v1_add_listener(ls->lock_surface,
         &lock_surface_listener, ls);
-    wl_surface_commit(ls->surface);
+    /* No initial no-buffer commit here: unlike xdg-shell/layer-shell,
+     * wlroots' ext-session-lock-v1 implementation rejects any commit before
+     * the first configure event, even an empty role-establishing one --
+     * confirmed live ("session lock surface is committed with a null
+     * buffer"). The compositor sends configure synchronously in response to
+     * get_lock_surface above, so lock_surface_configure() alone drives the
+     * first real (buffer-attached) commit via render_surface().
+     */
 }
 
 static void wl_output_done(void *data, struct wl_output *wl_out)
