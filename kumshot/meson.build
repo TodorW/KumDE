@@ -26,7 +26,7 @@ foreach p : protocols
   proto_src += scanner_code.process(p)
   proto_hdr += scanner_header.process(p)
 endforeach
-executable('kumshot',
+kumshot_exe = executable('kumshot',
   sources : ['src/main.c', proto_src, proto_hdr],
   include_directories : include_directories('.'),
   dependencies : [wayland_client, cairo, xkbcommon, librt], install : true)

@@ -77,7 +77,7 @@ layer_shell_server_header = custom_target('wlr-layer-shell-unstable-v1-protocol.
 )
 sources += [layer_shell_server_header]
 
-executable('kumde',
+kumde_exe = executable('kumde',
   sources,
   include_directories : [include_directories('include'), include_directories('.')],
   dependencies : [wlroots, wayland_server, xkbcommon, libinput, libm],
