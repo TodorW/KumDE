@@ -105,6 +105,14 @@ static void server_setup_globals(struct kum_server *server)
     wlr_server_decoration_manager_create(server->display);
     wlr_xdg_decoration_manager_v1_create(server->display);
     server->idle_notifier = wlr_idle_notifier_v1_create(server->display);
+    /* Without this, GPU-accelerated clients (XWayland's glamor/DRI3
+     * rendering included) have no protocol path to hand a rendered buffer
+     * to the compositor at all -- confirmed live: XWayland surfaces built
+     * on GLX/Present (glxgears) rendered internally (real 60fps GL swaps)
+     * but never got past a single bufferless commit, since there was
+     * nowhere for the buffer itself to go. */
+    wlr_linux_dmabuf_v1_create_with_renderer(server->display,
+        KUM_LINUX_DMABUF_VERSION, server->renderer);
 }
 
 static void server_setup_outputs(struct kum_server *server)
