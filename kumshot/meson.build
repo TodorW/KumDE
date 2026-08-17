@@ -16,9 +16,10 @@ scanner_header = generator(wayland_scanner,
 # wlr-screencopy and wlr-layer-shell are vendored under ../protocols (see
 # protocols/README.md).
 xdg_shell_xml = wayland_proto.get_variable('pkgdatadir') / 'stable/xdg-shell/xdg-shell.xml'
+xdg_output_xml = wayland_proto.get_variable('pkgdatadir') / 'unstable/xdg-output/xdg-output-unstable-v1.xml'
 screencopy_xml = '../protocols/wlr-screencopy-unstable-v1.xml'
 layer_xml = '../protocols/wlr-layer-shell-unstable-v1.xml'
-protocols = [xdg_shell_xml, screencopy_xml, layer_xml]
+protocols = [xdg_shell_xml, xdg_output_xml, screencopy_xml, layer_xml]
 proto_src = []
 proto_hdr = []
 foreach p : protocols

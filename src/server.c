@@ -120,6 +120,7 @@ static void server_setup_outputs(struct kum_server *server)
     server->output_layout = wlr_output_layout_create(server->display);
     server->scene_layout  = wlr_scene_attach_output_layout(
         server->scene, server->output_layout);
+    wlr_xdg_output_manager_v1_create(server->display, server->output_layout);
 
     wl_list_init(&server->outputs);
     server->new_output.notify = kum_new_output;

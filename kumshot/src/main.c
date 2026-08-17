@@ -13,6 +13,7 @@
 
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#include "xdg-output-unstable-v1-client-protocol.h"
 
 #define MAX_OUTPUTS 8
 
@@ -48,6 +49,7 @@ static struct {
     struct xkb_state                  *xkb_state;
     struct zwlr_screencopy_manager_v1 *screencopy;
     struct zwlr_layer_shell_v1        *layer_shell;
+    struct zxdg_output_manager_v1     *xdg_output_manager;
     shot_output outputs[MAX_OUTPUTS];
     int         output_count;
     char        outpath[512];
@@ -159,6 +161,28 @@ static void wlo_desc(void *d, struct wl_output *o, const char *dc) {}
 static const struct wl_output_listener wlo_listener = {
     .geometry=wlo_geometry,.mode=wlo_mode,.done=wlo_done,
     .scale=wlo_scale,.name=wlo_name,.description=wlo_desc,
+};
+
+/* wl_output's own geometry x/y are commonly left at 0,0 by compositors;
+ * xdg-output's logical_position is the reliable source of layout position. */
+static void xdgo_logical_position(void *d, struct zxdg_output_v1 *o,
+    int32_t x, int32_t y)
+{
+    shot_output *so = d;
+    so->x = x; so->y = y;
+}
+static void xdgo_logical_size(void *d, struct zxdg_output_v1 *o,
+    int32_t w, int32_t h) {}
+static void xdgo_done(void *d, struct zxdg_output_v1 *o) {}
+static void xdgo_name(void *d, struct zxdg_output_v1 *o, const char *n) {}
+static void xdgo_description(void *d, struct zxdg_output_v1 *o, const char *dc) {}
+
+static const struct zxdg_output_v1_listener xdgo_listener = {
+    .logical_position = xdgo_logical_position,
+    .logical_size     = xdgo_logical_size,
+    .done             = xdgo_done,
+    .name             = xdgo_name,
+    .description      = xdgo_description,
 };
 
 /* --- region-select overlay (-r) --- */
@@ -382,6 +406,9 @@ static void reg_global(void *d, struct wl_registry *reg,
     else if (!strcmp(iface, zwlr_screencopy_manager_v1_interface.name))
         app.screencopy = wl_registry_bind(reg, name,
             &zwlr_screencopy_manager_v1_interface, 3);
+    else if (!strcmp(iface, zxdg_output_manager_v1_interface.name))
+        app.xdg_output_manager = wl_registry_bind(reg, name,
+            &zxdg_output_manager_v1_interface, 3);
     else if (!strcmp(iface, wl_output_interface.name)) {
         if (app.output_count < MAX_OUTPUTS) {
             shot_output *so = &app.outputs[app.output_count];
@@ -533,6 +560,15 @@ int main(int argc, char *argv[])
     wl_registry_add_listener(app.registry, &reg_listener, NULL);
     wl_display_roundtrip(app.display);
     wl_display_roundtrip(app.display);
+
+    if (app.xdg_output_manager) {
+        for (int i = 0; i < app.output_count; i++) {
+            struct zxdg_output_v1 *xdg_out = zxdg_output_manager_v1_get_xdg_output(
+                app.xdg_output_manager, app.outputs[i].wl_output);
+            zxdg_output_v1_add_listener(xdg_out, &xdgo_listener, &app.outputs[i]);
+        }
+        wl_display_roundtrip(app.display);
+    }
 
     if (!app.shm || !app.screencopy) {
         fprintf(stderr,"kumshot: missing protocols\n"); return 1;
