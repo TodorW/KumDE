@@ -3,7 +3,7 @@
 kumshot \- screenshot tool for Wayland
 .SH SYNOPSIS
 .B kumshot
-[\fB\-o\fR \fIfile\fR] [\fB\-s\fR \fIoutput\fR] [\fB\-a\fR]
+[\fB\-o\fR \fIfile\fR] [\fB\-s\fR \fIoutput\fR] [\fB\-a\fR] [\fB\-r\fR]
 .SH OPTIONS
 .TP
 .B \-o \fIfile\fR
@@ -14,5 +14,10 @@ Capture a specific output by name (e.g. DP-1).
 .TP
 .B \-a
 Capture all outputs into a single composited image.
+.TP
+.B \-r
+Interactively drag-select a region to capture. Opens a dimmed
+layer-shell overlay on every output; click and drag to select,
+release to capture, Escape to cancel.
 .SH OUTPUT
 Prints the saved file path to stdout.

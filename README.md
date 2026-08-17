@@ -214,6 +214,7 @@ A section ends at the next `[...]` header (or end of file), so keep global keys 
 | Super + Shift + Up / Down | Shrink / grow window height (floating; no-op in tiled layout) |
 | Super + k | Cycle to next configured keyboard layout |
 | Super + Print | Screenshot (spawns `kumshot`) |
+| Super + Shift + Print | Region screenshot (spawns `kumshot -r`) |
 | Super + Shift + q | Power off |
 | Super + Shift + l | Lock screen (spawns `kumlock`) |
 | XF86AudioRaiseVolume / LowerVolume / Mute | Volume via `wpctl` |
@@ -323,10 +324,11 @@ kumde-msg notify myapp "Build finished" "All tests passed" 1 5000
 kumshot                      # screenshot the primary output to ~/Pictures/kumshot_TIMESTAMP.png
 kumshot -s DP-1               # screenshot a specific output by name
 kumshot -a                    # composite all outputs into one image
+kumshot -r                    # drag-select a region interactively
 kumshot -o /path/to/out.png   # explicit output path
 ```
 
-Captures via `wlr-screencopy-unstable-v1` and writes a PNG.
+Captures via `wlr-screencopy-unstable-v1` and writes a PNG. `-r` opens a dimmed, click-and-drag overlay on every output (via layer-shell); Escape cancels, releasing the mouse button captures exactly the selected rectangle.
 
 ---
 
