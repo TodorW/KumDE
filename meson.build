@@ -102,6 +102,7 @@ subdir('kumidle')
 subdir('kumnotify')
 subdir('kumshot')
 subdir('tools')
+subdir('tests')
 
 summary({
   'version'    : meson.project_version(),
