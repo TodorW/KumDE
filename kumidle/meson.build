@@ -8,5 +8,5 @@ scanner_header = generator(wayland_scanner, output : '@BASENAME@-client-protocol
 idle_xml = wayland_proto.get_variable('pkgdatadir') / 'staging/ext-idle-notify/ext-idle-notify-v1.xml'
 executable('kumidle',
   sources : ['src/main.c', scanner_code.process(idle_xml), scanner_header.process(idle_xml)],
-  include_directories : include_directories(meson.current_build_dir()),
+  include_directories : include_directories('.'),
   dependencies : [wayland_client], install : true)

@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <cairo/cairo.h>
 #include <ctype.h>
 #include <dirent.h>

@@ -14,18 +14,18 @@ scanner_code   = generator(wayland_scanner, output : '@BASENAME@-client-protocol
 scanner_header = generator(wayland_scanner, output : '@BASENAME@-client-protocol.h',
     arguments : ['client-header', '@INPUT@', '@OUTPUT@'])
 
-wl_proto_dir = wayland_proto.get_variable('pkgdatadir')
-layer_xml = wl_proto_dir / 'staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml'
-if not import('fs').exists(layer_xml)
-  layer_xml = wl_proto_dir / 'unstable/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml'
-endif
+wlr_proto_dir = dependency('wlr-protocols').get_variable('pkgdatadir')
+# wlr-layer-shell's get_popup request references xdg_popup, so xdg-shell's
+# interface table must be linked in too, even though it's otherwise unused.
+xdg_shell_xml = wayland_proto.get_variable('pkgdatadir') / 'stable/xdg-shell/xdg-shell.xml'
+layer_xml = wlr_proto_dir / 'unstable/wlr-layer-shell-unstable-v1.xml'
 
-proto_src = [scanner_code.process(layer_xml)]
-proto_hdr = [scanner_header.process(layer_xml)]
+proto_src = [scanner_code.process(xdg_shell_xml), scanner_code.process(layer_xml)]
+proto_hdr = [scanner_header.process(xdg_shell_xml), scanner_header.process(layer_xml)]
 
 executable('kumlauncher',
   sources : ['src/main.c', proto_src, proto_hdr],
-  include_directories : include_directories(meson.current_build_dir()),
+  include_directories : include_directories('.'),
   dependencies : [wayland_client, cairo, xkbcommon, libm, librt],
   install : true,
 )

@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <cairo/cairo.h>
 #include <fcntl.h>
 #include <poll.h>

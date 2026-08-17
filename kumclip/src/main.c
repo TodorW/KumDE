@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>

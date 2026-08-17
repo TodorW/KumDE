@@ -23,7 +23,7 @@ proto_hdr = [scanner_header.process(lock_xml)]
 
 executable('kumlock',
   sources : ['src/main.c', proto_src, proto_hdr],
-  include_directories : include_directories(meson.current_build_dir()),
+  include_directories : include_directories('.'),
   dependencies : [wayland_client, cairo, xkbcommon, libpam, libm, librt],
   install : true,
 )
