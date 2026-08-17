@@ -1,4 +1,5 @@
-#include "kumde.h"
+#include "runtime_config.h"
+#include "config.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -125,12 +126,10 @@ bool kum_config_load(struct kum_runtime_config *cfg, const char *path)
     if (!f) return false;
 
     char line[512];
-    int  lineno   = 0;
     int  section  = 0;
     int  out_idx  = -1;
 
     while (fgets(line, sizeof(line), f)) {
-        lineno++;
         char *s = trim(line);
         if (!s[0] || s[0] == '#') continue;
 
@@ -167,6 +166,6 @@ bool kum_config_load(struct kum_runtime_config *cfg, const char *path)
     }
 
     fclose(f);
-    wlr_log(WLR_INFO, "loaded config: %s", path);
+    fprintf(stderr, "kumde: loaded config: %s\n", path);
     return true;
 }
