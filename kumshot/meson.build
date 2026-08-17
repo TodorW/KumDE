@@ -11,12 +11,13 @@ scanner_code   = generator(wayland_scanner,
 scanner_header = generator(wayland_scanner,
     output : '@BASENAME@-client-protocol.h',
     arguments : ['client-header', '@INPUT@', '@OUTPUT@'])
-wlr_proto_dir = dependency('wlr-protocols').get_variable('pkgdatadir')
 # wlr-layer-shell's get_popup request references xdg_popup, so xdg-shell's
 # interface table must be linked in too, even though it's otherwise unused.
+# wlr-screencopy and wlr-layer-shell are vendored under ../protocols (see
+# protocols/README.md).
 xdg_shell_xml = wayland_proto.get_variable('pkgdatadir') / 'stable/xdg-shell/xdg-shell.xml'
-screencopy_xml = wlr_proto_dir / 'unstable/wlr-screencopy-unstable-v1.xml'
-layer_xml = wlr_proto_dir / 'unstable/wlr-layer-shell-unstable-v1.xml'
+screencopy_xml = '../protocols/wlr-screencopy-unstable-v1.xml'
+layer_xml = '../protocols/wlr-layer-shell-unstable-v1.xml'
 protocols = [xdg_shell_xml, screencopy_xml, layer_xml]
 proto_src = []
 proto_hdr = []

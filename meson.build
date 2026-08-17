@@ -69,9 +69,8 @@ endif
 # protocol header directly (#include "wlr-layer-shell-unstable-v1-protocol.h")
 # rather than shipping a pre-generated copy themselves.
 wayland_scanner = find_program('wayland-scanner')
-wlr_proto_dir   = dependency('wlr-protocols').get_variable('pkgdatadir')
 layer_shell_server_header = custom_target('wlr-layer-shell-unstable-v1-protocol.h',
-  input   : wlr_proto_dir / 'unstable/wlr-layer-shell-unstable-v1.xml',
+  input   : 'protocols/wlr-layer-shell-unstable-v1.xml',
   output  : 'wlr-layer-shell-unstable-v1-protocol.h',
   command : [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
 )

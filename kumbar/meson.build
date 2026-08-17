@@ -20,13 +20,15 @@ wayland_scanner_header = generator(
 )
 
 wl_proto_dir  = wayland_proto.get_variable('pkgdatadir')
-wlr_proto_dir = dependency('wlr-protocols').get_variable('pkgdatadir')
 
 # wlr-layer-shell's get_popup request references xdg_popup, so the
 # generated code needs xdg-shell's interface table linked in too, even
-# though this client never uses xdg-shell itself.
+# though this client never uses xdg-shell itself. wlr-layer-shell is
+# vendored under ../protocols (see protocols/README.md) since it's not
+# part of wayland-protocols and isn't guaranteed to be packaged
+# separately on every distribution.
 xdg_shell_xml   = wl_proto_dir / 'stable/xdg-shell/xdg-shell.xml'
-layer_shell_xml = wlr_proto_dir / 'unstable/wlr-layer-shell-unstable-v1.xml'
+layer_shell_xml = '../protocols/wlr-layer-shell-unstable-v1.xml'
 xdg_output_xml  = wl_proto_dir / 'unstable/xdg-output/xdg-output-unstable-v1.xml'
 
 protocols = [xdg_shell_xml, layer_shell_xml, xdg_output_xml]
