@@ -133,19 +133,15 @@ static const char *cursor_name_for_edges(enum wlr_edges edges)
     }
 }
 
-static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
-    double lx, double ly)
+static enum wlr_edges edges_at_point_wh(struct wlr_scene_tree *scene_tree,
+    double lx, double ly, int w, int h)
 {
     int nx, ny;
-    wlr_scene_node_coords(&tl->scene_tree->node, &nx, &ny);
-
-    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
+    wlr_scene_node_coords(&scene_tree->node, &nx, &ny);
 
     int edge_px = 8;
     int rx = (int)lx - nx;
     int ry = (int)ly - ny;
-    int w  = geo.width;
-    int h  = geo.height;
 
     enum wlr_edges edges = WLR_EDGE_NONE;
     if (rx < edge_px)          edges |= WLR_EDGE_LEFT;
@@ -154,6 +150,22 @@ static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
     else if (ry > h - edge_px) edges |= WLR_EDGE_BOTTOM;
     return edges;
 }
+
+static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
+    double lx, double ly)
+{
+    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
+    return edges_at_point_wh(tl->scene_tree, lx, ly, geo.width, geo.height);
+}
+
+#ifdef KUM_XWAYLAND
+static enum wlr_edges edges_at_point_xwayland(struct kum_xwayland_surface *xs,
+    double lx, double ly)
+{
+    return edges_at_point_wh(xs->scene_tree, lx, ly,
+        xs->xwayland_surface->width, xs->xwayland_surface->height);
+}
+#endif
 
 static void process_cursor_motion(struct kum_server *server, uint32_t time)
 {
@@ -265,10 +277,12 @@ static void process_cursor_motion(struct kum_server *server, uint32_t time)
 
     double sx, sy;
     struct wlr_surface *surface = NULL;
-    struct kum_toplevel *under = kum_toplevel_at(server,
-        server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    kum_node_kind kind;
+    void *hit = kum_scene_node_at(server,
+        server->cursor->x, server->cursor->y, &surface, &sx, &sy, &kind);
 
-    if (under) {
+    if (hit && kind == KUM_NODE_XDG) {
+        struct kum_toplevel *under = hit;
         enum wlr_edges edges = edges_at_point(under,
             server->cursor->x, server->cursor->y);
         if (edges != WLR_EDGE_NONE) {
@@ -280,7 +294,24 @@ static void process_cursor_motion(struct kum_server *server, uint32_t time)
 
         if (server->cfg.focus_follows_mouse && under != server->focused)
             kum_focus_toplevel(under, surface);
-    } else {
+    }
+#ifdef KUM_XWAYLAND
+    else if (hit && kind == KUM_NODE_XWAYLAND) {
+        struct kum_xwayland_surface *xs_under = hit;
+        enum wlr_edges edges = edges_at_point_xwayland(xs_under,
+            server->cursor->x, server->cursor->y);
+        if (edges != WLR_EDGE_NONE) {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
+                cursor_name_for_edges(edges));
+        } else {
+            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
+        }
+
+        if (server->cfg.focus_follows_mouse && xs_under != server->focused_xwayland)
+            kum_focus_xwayland_surface(xs_under);
+    }
+#endif
+    else {
         wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
     }
 
@@ -373,6 +404,11 @@ void kum_cursor_button(struct wl_listener *listener, void *data)
             kum_xwayland_begin_interactive(xs, WLR_EDGE_NONE);
         } else if (mod_held && ev->button == BTN_RIGHT) {
             kum_xwayland_begin_interactive(xs, WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT);
+        } else if (ev->button == BTN_LEFT) {
+            enum wlr_edges edges =
+                edges_at_point_xwayland(xs, server->cursor->x, server->cursor->y);
+            if (edges != WLR_EDGE_NONE)
+                kum_xwayland_begin_interactive(xs, edges);
         }
     }
 #endif
