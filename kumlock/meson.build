@@ -1,8 +1,3 @@
-project('kumlock', 'c',
-  version : '0.2.0',
-  default_options : ['c_std=c11', 'warning_level=2'],
-)
-
 cc = meson.get_compiler('c')
 
 wayland_client  = dependency('wayland-client')
