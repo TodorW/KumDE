@@ -241,7 +241,7 @@ static void toplevel_destroy(struct wl_listener *listener, void *data)
     free(tl);
 }
 
-static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
+void kum_toplevel_begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
 {
     struct kum_workspace *ws = &tl->server->workspaces[tl->workspace];
     if (ws->layout == LAYOUT_TILE && !tl->floating) {
@@ -270,14 +270,14 @@ static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
 static void request_move(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, request_move);
-    begin_interactive(tl, WLR_EDGE_NONE);
+    kum_toplevel_begin_interactive(tl, WLR_EDGE_NONE);
 }
 
 static void request_resize(struct wl_listener *listener, void *data)
 {
     struct kum_toplevel *tl = wl_container_of(listener, tl, request_resize);
     struct wlr_xdg_toplevel_resize_event *ev = data;
-    begin_interactive(tl, ev->edges);
+    kum_toplevel_begin_interactive(tl, ev->edges);
 }
 
 static void request_maximize(struct wl_listener *listener, void *data)

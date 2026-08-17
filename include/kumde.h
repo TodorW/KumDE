@@ -277,6 +277,7 @@ void kum_new_xdg_popup(struct wl_listener *listener, void *data);
 void kum_focus_toplevel(struct kum_toplevel *toplevel, struct wlr_surface *surface);
 void kum_toplevel_set_fullscreen(struct kum_toplevel *tl, bool fs);
 void kum_toplevel_toggle_fullscreen(struct kum_toplevel *tl);
+void kum_toplevel_begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges);
 struct kum_toplevel *kum_toplevel_at(struct kum_server *server,
     double lx, double ly, struct wlr_surface **surface,
     double *sx, double *sy);
@@ -347,6 +348,7 @@ void kum_xwayland_corners_apply(struct kum_xwayland_surface *xs);
 void kum_xwayland_corners_destroy(struct kum_xwayland_surface *xs);
 void kum_xwayland_set_fullscreen(struct kum_xwayland_surface *xs, bool fs);
 void kum_xwayland_toggle_fullscreen(struct kum_xwayland_surface *xs);
+void kum_xwayland_begin_interactive(struct kum_xwayland_surface *xs, enum wlr_edges edges);
 void kum_workspace_move_xwayland_surface(struct kum_server *server,
     struct kum_xwayland_surface *xs, int index);
 #endif

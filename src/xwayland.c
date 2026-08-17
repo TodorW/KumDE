@@ -109,13 +109,10 @@ static void xwayland_surface_destroy(struct wl_listener *listener, void *data)
     free(xs);
 }
 
-static void xwayland_request_move(struct wl_listener *listener, void *data)
+void kum_xwayland_begin_interactive(struct kum_xwayland_surface *xs, enum wlr_edges edges)
 {
-    struct kum_xwayland_surface *xs =
-        wl_container_of(listener, xs, request_move);
-
     xs->grabbed      = true;
-    xs->resize_edges = WLR_EDGE_NONE;
+    xs->resize_edges = edges;
     xs->grab_x       = (int)xs->server->cursor->x;
     xs->grab_y       = (int)xs->server->cursor->y;
 
@@ -127,23 +124,19 @@ static void xwayland_request_move(struct wl_listener *listener, void *data)
     xs->grab_geobox.height = xs->xwayland_surface->height;
 }
 
+static void xwayland_request_move(struct wl_listener *listener, void *data)
+{
+    struct kum_xwayland_surface *xs =
+        wl_container_of(listener, xs, request_move);
+    kum_xwayland_begin_interactive(xs, WLR_EDGE_NONE);
+}
+
 static void xwayland_request_resize(struct wl_listener *listener, void *data)
 {
     struct kum_xwayland_surface *xs =
         wl_container_of(listener, xs, request_resize);
     struct wlr_xwayland_resize_event *ev = data;
-
-    xs->grabbed      = true;
-    xs->resize_edges = ev->edges;
-    xs->grab_x       = (int)xs->server->cursor->x;
-    xs->grab_y       = (int)xs->server->cursor->y;
-
-    int nx, ny;
-    wlr_scene_node_coords(&xs->scene_tree->node, &nx, &ny);
-    xs->grab_geobox.x      = nx;
-    xs->grab_geobox.y      = ny;
-    xs->grab_geobox.width  = xs->xwayland_surface->width;
-    xs->grab_geobox.height = xs->xwayland_surface->height;
+    kum_xwayland_begin_interactive(xs, ev->edges);
 }
 
 static void xwayland_set_maximized(struct kum_xwayland_surface *xs, bool want)

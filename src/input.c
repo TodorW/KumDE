@@ -1,4 +1,5 @@
 #include "kumde.h"
+#include <linux/input-event-codes.h>
 #include <stdlib.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -342,6 +343,37 @@ void kum_cursor_button(struct wl_listener *listener, void *data)
 #ifdef KUM_XWAYLAND
     else if (hit && kind == KUM_NODE_XWAYLAND) {
         kum_focus_xwayland_surface(hit);
+    }
+#endif
+
+    if (!hit || (ev->button != BTN_LEFT && ev->button != BTN_RIGHT))
+        return;
+
+    struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
+    uint32_t modifiers = kb ? wlr_keyboard_get_modifiers(kb) : 0;
+    bool mod_held = modifiers == KUM_MOD_KEY;
+
+    if (kind == KUM_NODE_XDG) {
+        struct kum_toplevel *tl = hit;
+        if (mod_held && ev->button == BTN_LEFT) {
+            kum_toplevel_begin_interactive(tl, WLR_EDGE_NONE);
+        } else if (mod_held && ev->button == BTN_RIGHT) {
+            kum_toplevel_begin_interactive(tl, WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT);
+        } else if (ev->button == BTN_LEFT) {
+            enum wlr_edges edges =
+                edges_at_point(tl, server->cursor->x, server->cursor->y);
+            if (edges != WLR_EDGE_NONE)
+                kum_toplevel_begin_interactive(tl, edges);
+        }
+    }
+#ifdef KUM_XWAYLAND
+    else if (kind == KUM_NODE_XWAYLAND) {
+        struct kum_xwayland_surface *xs = hit;
+        if (mod_held && ev->button == BTN_LEFT) {
+            kum_xwayland_begin_interactive(xs, WLR_EDGE_NONE);
+        } else if (mod_held && ev->button == BTN_RIGHT) {
+            kum_xwayland_begin_interactive(xs, WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT);
+        }
     }
 #endif
 }
