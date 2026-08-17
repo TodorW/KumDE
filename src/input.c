@@ -26,7 +26,7 @@ static void keyboard_key(struct wl_listener *listener, void *data)
     uint32_t modifiers = wlr_keyboard_get_modifiers(kb->wlr_keyboard);
     bool handled = false;
 
-    if (ev->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+    if (!server->locked && ev->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
         for (int i = 0; i < nsyms; i++)
             handled |= kum_keybind_handle(server, modifiers, syms[i]);
     }

@@ -42,6 +42,7 @@ sources = files(
   'src/jsonutil.c',
   'src/pixelbuffer.c',
   'src/layer.c',
+  'src/sessionlock.c',
   'src/workspace.c',
   'src/conf.c',
   'src/shadow.c',

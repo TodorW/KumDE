@@ -249,6 +249,7 @@ void kum_server_init(struct kum_server *server)
     server_setup_globals(server);
     server_setup_outputs(server);
     server_setup_shell(server);
+    kum_session_lock_init(server);
     server_setup_cursor(server);
     server_setup_input(server);
     kum_ipc_init(server);

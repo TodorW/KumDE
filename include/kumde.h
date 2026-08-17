@@ -26,6 +26,7 @@
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
+#include <wlr/types/wlr_session_lock_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
@@ -100,6 +101,11 @@ struct kum_server {
     struct wlr_xcursor_manager      *cursor_mgr;
     struct wlr_seat                 *seat;
     struct wlr_idle_notifier_v1     *idle_notifier;
+    struct wlr_session_lock_manager_v1 *session_lock_manager;
+    struct wlr_scene_tree           *lock_tree;
+    struct wlr_session_lock_v1      *active_lock;
+    bool                             locked;
+    struct wl_listener               new_session_lock;
 
     struct wl_list  outputs;
     struct wl_list  toplevels;
@@ -288,6 +294,9 @@ void kum_corners_apply(struct kum_toplevel *toplevel);
 void kum_corners_destroy(struct kum_toplevel *toplevel);
 
 void kum_new_layer_surface(struct wl_listener *listener, void *data);
+
+void kum_session_lock_init(struct kum_server *server);
+void kum_session_lock_raise(struct kum_server *server);
 
 void kum_keybind_register(struct kum_server *server, uint32_t modifiers,
                           xkb_keysym_t sym,

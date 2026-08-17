@@ -57,6 +57,8 @@ void kum_focus_toplevel(struct kum_toplevel *toplevel,
         return;
 
     struct kum_server *server = toplevel->server;
+    if (server->locked)
+        return;
     struct wlr_seat   *seat   = server->seat;
     struct wlr_surface *prev  = seat->keyboard_state.focused_surface;
 

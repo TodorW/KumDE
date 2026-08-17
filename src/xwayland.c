@@ -240,6 +240,8 @@ static void xwayland_set_title(struct wl_listener *listener, void *data)
 void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
 {
     struct kum_server *server = xs->server;
+    if (server->locked)
+        return;
     struct wlr_seat   *seat   = server->seat;
     struct wlr_surface *surface = xs->xwayland_surface->surface;
     struct wlr_surface *prev  = seat->keyboard_state.focused_surface;
