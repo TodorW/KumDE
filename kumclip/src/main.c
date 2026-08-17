@@ -8,13 +8,27 @@
 #include <unistd.h>
 #include <wayland-client-protocol.h>
 
-#define CLIP_MAX      (8 * 1024 * 1024)
+#define CLIP_MAX      (32 * 1024 * 1024)
 #define MIME_TEXT     "text/plain;charset=utf-8"
 #define MIME_ALT      "text/plain"
 #define MIME_UTF8     "UTF8_STRING"
 #define MIME_STRING   "STRING"
+#define MIME_PNG      "image/png"
+#define MIME_JPEG     "image/jpeg"
 
 typedef struct { char *data; size_t len; char mime[128]; } clip_t;
+
+typedef struct {
+    struct wl_data_offer *offer;
+    bool has_text;
+    char image_mime[32];
+} offer_state_t;
+
+static bool mime_is_text(const char *m)
+{
+    return !strcmp(m, MIME_TEXT) || !strcmp(m, MIME_ALT) ||
+           !strcmp(m, MIME_UTF8) || !strcmp(m, MIME_STRING);
+}
 
 static struct {
     struct wl_display                 *display;
@@ -94,22 +108,29 @@ static void claim(void)
     if (app.source) wl_data_source_destroy(app.source);
     app.source = wl_data_device_manager_create_data_source(app.ddm);
     wl_data_source_add_listener(app.source, &source_listener, &app.held);
-    wl_data_source_offer(app.source, MIME_TEXT);
-    wl_data_source_offer(app.source, MIME_ALT);
-    wl_data_source_offer(app.source, MIME_UTF8);
-    wl_data_source_offer(app.source, MIME_STRING);
+    if (mime_is_text(app.held.mime)) {
+        wl_data_source_offer(app.source, MIME_TEXT);
+        wl_data_source_offer(app.source, MIME_ALT);
+        wl_data_source_offer(app.source, MIME_UTF8);
+        wl_data_source_offer(app.source, MIME_STRING);
+    } else {
+        wl_data_source_offer(app.source, app.held.mime);
+    }
     wl_data_device_set_selection(app.dd, app.source, 0);
     app.is_owner = true;
 }
 
-static struct { struct wl_data_offer *offer; bool has_text; } pending;
+static offer_state_t pending;
 
 static void offer_mime(void *data, struct wl_data_offer *o, const char *mime)
 {
-    bool *ht = data;
-    if (!strcmp(mime, MIME_TEXT) || !strcmp(mime, MIME_ALT) ||
-        !strcmp(mime, MIME_UTF8) || !strcmp(mime, MIME_STRING))
-        *ht = true;
+    offer_state_t *p = data;
+    if (mime_is_text(mime)) {
+        p->has_text = true;
+    } else if (!p->image_mime[0] &&
+            (!strcmp(mime, MIME_PNG) || !strcmp(mime, MIME_JPEG))) {
+        strncpy(p->image_mime, mime, sizeof(p->image_mime) - 1);
+    }
 }
 
 static void offer_src_actions(void *d, struct wl_data_offer *o, uint32_t a) {}
@@ -124,8 +145,10 @@ static void dd_offer(void *d, struct wl_data_device *dd,
     struct wl_data_offer *offer)
 {
     if (pending.offer) wl_data_offer_destroy(pending.offer);
-    pending.offer = offer; pending.has_text = false;
-    wl_data_offer_add_listener(offer, &offer_listener, &pending.has_text);
+    pending.offer = offer;
+    pending.has_text = false;
+    pending.image_mime[0] = '\0';
+    wl_data_offer_add_listener(offer, &offer_listener, &pending);
 }
 
 static void dd_selection(void *d, struct wl_data_device *dd,
@@ -133,12 +156,19 @@ static void dd_selection(void *d, struct wl_data_device *dd,
 {
     if (app.is_owner) return;
     if (!offer) return;
-    if (!pending.has_text) { wl_data_offer_destroy(offer); pending.offer = NULL; return; }
+    if (!pending.has_text && !pending.image_mime[0]) {
+        wl_data_offer_destroy(offer); pending.offer = NULL; return;
+    }
     clip_t fresh = {0};
-    bool ok = clip_read(offer, MIME_TEXT, &fresh);
-    if (!ok) ok = clip_read(offer, MIME_ALT, &fresh);
-    if (!ok) ok = clip_read(offer, MIME_UTF8, &fresh);
-    if (!ok) ok = clip_read(offer, MIME_STRING, &fresh);
+    bool ok = false;
+    if (pending.has_text) {
+        ok = clip_read(offer, MIME_TEXT, &fresh);
+        if (!ok) ok = clip_read(offer, MIME_ALT, &fresh);
+        if (!ok) ok = clip_read(offer, MIME_UTF8, &fresh);
+        if (!ok) ok = clip_read(offer, MIME_STRING, &fresh);
+    }
+    if (!ok && pending.image_mime[0])
+        ok = clip_read(offer, pending.image_mime, &fresh);
     wl_data_offer_destroy(offer); pending.offer = NULL;
     if (!ok) return;
     clip_free(&app.held); app.held = fresh;
