@@ -231,6 +231,15 @@ static void action_screenshot(struct kum_server *s, void *d)
     }
 }
 
+static void action_screenshot_region(struct kum_server *s, void *d)
+{
+    if (fork() == 0) {
+        setsid();
+        execlp("kumshot", "kumshot", "-r", NULL);
+        _exit(1);
+    }
+}
+
 static void action_shutdown(struct kum_server *s, void *d)
 {
     wl_display_terminate(s->display);
@@ -273,6 +282,7 @@ void kum_keybind_setup_session(struct kum_server *server)
     kum_keybind_register(server, mod_s, XKB_KEY_Down,  action_resize_down,  NULL);
     kum_keybind_register(server, mod_s, XKB_KEY_Up,    action_resize_up,    NULL);
     kum_keybind_register(server, mod,   XKB_KEY_Print, action_screenshot,   NULL);
+    kum_keybind_register(server, mod_s, XKB_KEY_Print, action_screenshot_region, NULL);
     kum_keybind_register(server, mod_s, XKB_KEY_q,     action_shutdown,     NULL);
     kum_keybind_register(server, mod_s, XKB_KEY_l,     action_lock,         NULL);
 
