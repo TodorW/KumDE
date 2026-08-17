@@ -7,11 +7,6 @@ cairo            = dependency('cairo')
 libm             = cc.find_library('m')
 librt            = cc.find_library('rt')
 
-add_project_arguments(
-  '-D_POSIX_C_SOURCE=200809L',
-  language : 'c',
-)
-
 wayland_scanner_code = generator(
   wayland_scanner,
   output  : '@BASENAME@-client-protocol.c',

@@ -4,7 +4,6 @@ wayland_scanner = find_program('wayland-scanner')
 wayland_proto   = dependency('wayland-protocols')
 cairo           = dependency('cairo')
 librt           = cc.find_library('rt')
-add_project_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
 scanner_code   = generator(wayland_scanner,
     output : '@BASENAME@-client-protocol.c',
     arguments : ['private-code', '@INPUT@', '@OUTPUT@'])
