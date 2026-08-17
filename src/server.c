@@ -204,6 +204,11 @@ void kum_server_init(struct kum_server *server)
 
     kum_config_defaults(&server->cfg);
     kum_config_load(&server->cfg, config_path());
+    /* kum_rules_init() just does wl_list_init(&server->rules) -- it must
+     * run before this, or the first rule ever configured (server->rules
+     * still zeroed by the memset above, not a valid empty wl_list) crashes
+     * kum_rules_load()'s wl_list_insert() immediately on startup. */
+    kum_rules_init(server);
     kum_rules_load(server, config_path());
 
     server->display = wl_display_create();
@@ -258,7 +263,6 @@ void kum_server_init(struct kum_server *server)
 #endif
 
     kum_workspace_init(server);
-    kum_rules_init(server);
     server->scratchpad_ws = KUM_WORKSPACE_COUNT - 1;
     server_setup_globals(server);
     server_setup_outputs(server);
