@@ -33,7 +33,7 @@ sources = files(
   'src/input.c',
   'src/keybind.c',
   'src/border.c',
-  'src/anim.c',
+  'src/easing.c',
   'src/layer.c',
   'src/workspace.c',
   'src/conf.c',

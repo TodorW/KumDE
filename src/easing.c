@@ -1,6 +1,4 @@
-#include "kumde.h"
-#include <math.h>
-#include <string.h>
+#include "easing.h"
 
 float kum_ease_out_cubic(float t)
 {
