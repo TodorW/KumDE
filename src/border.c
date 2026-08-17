@@ -69,8 +69,7 @@ void kum_border_update(struct kum_toplevel *toplevel, bool focused)
 
     struct kum_runtime_config *cfg = &toplevel->server->cfg;
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
+    struct wlr_box geo = toplevel->xdg_toplevel->base->geometry;
 
     border_position(toplevel->border, geo.width, geo.height, cfg->border_width);
 

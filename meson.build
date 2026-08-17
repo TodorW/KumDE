@@ -26,7 +26,7 @@ wlr_minor   = wlr_version[1].to_int()
 add_project_arguments(
   '-DWLR_VERSION_MINOR=@0@'.format(wlr_minor),
   '-DWLR_USE_UNSTABLE',
-  '-D_POSIX_C_SOURCE=200809L',
+  '-D_GNU_SOURCE',
   language : 'c',
 )
 
@@ -40,6 +40,7 @@ sources = files(
   'src/border.c',
   'src/easing.c',
   'src/jsonutil.c',
+  'src/pixelbuffer.c',
   'src/layer.c',
   'src/workspace.c',
   'src/conf.c',
@@ -64,9 +65,21 @@ if xwayland
   add_project_arguments('-DKUM_XWAYLAND', language : 'c')
 endif
 
+# wlroots' installed headers reference this generated server-side
+# protocol header directly (#include "wlr-layer-shell-unstable-v1-protocol.h")
+# rather than shipping a pre-generated copy themselves.
+wayland_scanner = find_program('wayland-scanner')
+wlr_proto_dir   = dependency('wlr-protocols').get_variable('pkgdatadir')
+layer_shell_server_header = custom_target('wlr-layer-shell-unstable-v1-protocol.h',
+  input   : wlr_proto_dir / 'unstable/wlr-layer-shell-unstable-v1.xml',
+  output  : 'wlr-layer-shell-unstable-v1-protocol.h',
+  command : [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@'],
+)
+sources += [layer_shell_server_header]
+
 executable('kumde',
   sources,
-  include_directories : include_directories('include'),
+  include_directories : [include_directories('include'), include_directories('.')],
   dependencies : [wlroots, wayland_server, xkbcommon, libinput, libm],
   install : true,
 )

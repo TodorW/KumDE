@@ -94,8 +94,8 @@ void kum_server_reload_config(struct kum_server *server)
 
 static void server_setup_globals(struct kum_server *server)
 {
-    wlr_compositor_create(server->display, KUM_COMPOSITOR_VERSION,
-        server->renderer);
+    server->compositor = wlr_compositor_create(server->display,
+        KUM_COMPOSITOR_VERSION, server->renderer);
     wlr_subcompositor_create(server->display);
     wlr_data_device_manager_create(server->display);
     wlr_primary_selection_v1_device_manager_create(server->display);
@@ -162,6 +162,7 @@ static void server_setup_cursor(struct kum_server *server)
 static void server_setup_input(struct kum_server *server)
 {
     wl_list_init(&server->keyboards);
+    wl_list_init(&server->pointers);
     wl_list_init(&server->keybinds);
 
     server->new_input.notify = kum_new_input;

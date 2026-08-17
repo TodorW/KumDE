@@ -1,6 +1,7 @@
 #ifdef KUM_XWAYLAND
 
 #include "kumde.h"
+#include "pixelbuffer.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -168,7 +169,7 @@ static void xwayland_set_maximized(struct kum_xwayland_surface *xs, bool want)
             xs->saved_geom.x, xs->saved_geom.y);
     }
 
-    wlr_xwayland_surface_set_maximized(xs->xwayland_surface, want);
+    wlr_xwayland_surface_set_maximized(xs->xwayland_surface, want, want);
 }
 
 static void xwayland_request_maximize(struct wl_listener *listener, void *data)
@@ -338,10 +339,18 @@ static void handle_xwayland_ready(struct wl_listener *listener, void *data)
         server->cursor_mgr, "default", 1);
     if (xcursor) {
         struct wlr_xcursor_image *image = xcursor->images[0];
-        wlr_xwayland_set_cursor(server->xwayland,
-            image->buffer, image->width * 4,
-            image->width, image->height,
-            image->hotspot_x, image->hotspot_y);
+        size_t size = (size_t)image->width * image->height * 4;
+        uint32_t *pixels = malloc(size);
+        if (pixels) {
+            memcpy(pixels, image->buffer, size);
+            struct wlr_buffer *cursor_buf =
+                kum_pixel_buffer_create(image->width, image->height, pixels);
+            if (cursor_buf) {
+                wlr_xwayland_set_cursor(server->xwayland, cursor_buf,
+                    image->hotspot_x, image->hotspot_y);
+                wlr_buffer_drop(cursor_buf);
+            }
+        }
     }
 }
 
@@ -350,7 +359,7 @@ void kum_xwayland_init(struct kum_server *server)
     wl_list_init(&server->xwayland_surfaces);
 
     server->xwayland = wlr_xwayland_create(server->display,
-        wlr_compositor_from_server(server->display), false);
+        server->compositor, false);
 
     if (!server->xwayland) {
         wlr_log(WLR_ERROR, "xwayland: failed to create");

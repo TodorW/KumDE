@@ -1,4 +1,5 @@
 #include "kumde.h"
+#include "pixelbuffer.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -47,8 +48,7 @@ static uint32_t *build_shadow_texture(int w, int h, int radius, float alpha)
 }
 
 static struct wlr_scene_buffer *shadow_build(struct wlr_scene_tree *tree,
-    struct wlr_renderer *renderer, struct kum_runtime_config *cfg,
-    int w, int h)
+    struct kum_runtime_config *cfg, int w, int h)
 {
     if (!cfg->shadows)
         return NULL;
@@ -61,20 +61,14 @@ static struct wlr_scene_buffer *shadow_build(struct wlr_scene_tree *tree,
     if (!pixels)
         return NULL;
 
-    struct wlr_texture *tex = wlr_texture_from_pixels(renderer,
-        DRM_FORMAT_ARGB8888, sw * 4, sw, sh, pixels);
-    free(pixels);
-    if (!tex)
+    struct wlr_buffer *wbuf = kum_pixel_buffer_create(sw, sh, pixels);
+    if (!wbuf)
         return NULL;
 
-    struct wlr_scene_buffer *buf = wlr_scene_buffer_create(tree, NULL);
-    if (!buf) {
-        wlr_texture_destroy(tex);
+    struct wlr_scene_buffer *buf = wlr_scene_buffer_create(tree, wbuf);
+    wlr_buffer_drop(wbuf);
+    if (!buf)
         return NULL;
-    }
-
-    wlr_scene_buffer_set_texture(buf, tex);
-    wlr_texture_destroy(tex);
 
     int ox = cfg->shadow_offset_x - sr;
     int oy = cfg->shadow_offset_y - sr;
@@ -93,11 +87,9 @@ static void shadow_destroy_buf(struct wlr_scene_buffer **buf)
 
 void kum_shadow_create(struct kum_toplevel *toplevel)
 {
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
+    struct wlr_box geo = toplevel->xdg_toplevel->base->geometry;
     toplevel->shadow_buf = shadow_build(toplevel->scene_tree,
-        toplevel->server->renderer, &toplevel->server->cfg,
-        geo.width, geo.height);
+        &toplevel->server->cfg, geo.width, geo.height);
 }
 
 void kum_shadow_update(struct kum_toplevel *toplevel)
@@ -117,9 +109,8 @@ void kum_shadow_destroy(struct kum_toplevel *toplevel)
 #ifdef KUM_XWAYLAND
 void kum_xwayland_shadow_create(struct kum_xwayland_surface *xs)
 {
-    xs->shadow_buf = shadow_build(xs->scene_tree, xs->server->renderer,
-        &xs->server->cfg, xs->xwayland_surface->width,
-        xs->xwayland_surface->height);
+    xs->shadow_buf = shadow_build(xs->scene_tree, &xs->server->cfg,
+        xs->xwayland_surface->width, xs->xwayland_surface->height);
 }
 
 void kum_xwayland_shadow_destroy(struct kum_xwayland_surface *xs)

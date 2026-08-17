@@ -1,4 +1,5 @@
 #include "kumde.h"
+#include <wlr/backend/libinput.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_pointer.h>
 #include <libinput.h>
@@ -40,21 +41,22 @@ static void configure_libinput_device(struct kum_server *server,
     }
 }
 
+void kum_input_configure_device(struct kum_server *server,
+    struct wlr_input_device *device)
+{
+    if (device->type != WLR_INPUT_DEVICE_POINTER)
+        return;
+    if (!wlr_input_device_is_libinput(device))
+        return;
+
+    struct libinput_device *li = wlr_libinput_get_device_handle(device);
+    if (li)
+        configure_libinput_device(server, li);
+}
+
 void kum_input_configure(struct kum_server *server)
 {
-    struct wlr_input_device *dev;
-    struct wl_list *inputs = wlr_backend_get_inputs(server->backend);
-    if (!inputs) return;
-
-    wl_list_for_each(dev, inputs, link) {
-        if (dev->type != WLR_INPUT_DEVICE_POINTER)
-            continue;
-        struct wlr_pointer *ptr = wlr_pointer_from_input_device(dev);
-        if (wlr_pointer_is_libinput(ptr)) {
-            struct libinput_device *li =
-                wlr_libinput_get_device_handle(ptr->base.input_device);
-            if (li)
-                configure_libinput_device(server, li);
-        }
-    }
+    struct kum_pointer *p;
+    wl_list_for_each(p, &server->pointers, link)
+        kum_input_configure_device(server, p->device);
 }

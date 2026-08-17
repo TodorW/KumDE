@@ -1,4 +1,5 @@
 #include "kumde.h"
+#include "pixelbuffer.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +59,7 @@ static uint32_t *build_corner_mask(int w, int h, int radius)
 }
 
 static struct wlr_scene_buffer *corners_build(struct wlr_scene_tree *tree,
-    struct wlr_renderer *renderer, int radius, int w, int h)
+    int radius, int w, int h)
 {
     if (radius <= 0 || w <= 0 || h <= 0)
         return NULL;
@@ -67,21 +68,14 @@ static struct wlr_scene_buffer *corners_build(struct wlr_scene_tree *tree,
     if (!pixels)
         return NULL;
 
-    struct wlr_texture *mask = wlr_texture_from_pixels(renderer,
-        DRM_FORMAT_ARGB8888, (uint32_t)w * 4, (uint32_t)w, (uint32_t)h,
-        pixels);
-    free(pixels);
-    if (!mask)
+    struct wlr_buffer *wbuf = kum_pixel_buffer_create(w, h, pixels);
+    if (!wbuf)
         return NULL;
 
-    struct wlr_scene_buffer *buf = wlr_scene_buffer_create(tree, NULL);
-    if (!buf) {
-        wlr_texture_destroy(mask);
+    struct wlr_scene_buffer *buf = wlr_scene_buffer_create(tree, wbuf);
+    wlr_buffer_drop(wbuf);
+    if (!buf)
         return NULL;
-    }
-
-    wlr_scene_buffer_set_texture(buf, mask);
-    wlr_texture_destroy(mask);
 
     wlr_scene_node_set_position(&buf->node, 0, 0);
     wlr_scene_node_raise_to_top(&buf->node);
@@ -103,13 +97,11 @@ void kum_corners_apply(struct kum_toplevel *toplevel)
     if (!toplevel->xdg_toplevel->base->surface->mapped)
         return;
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(toplevel->xdg_toplevel->base, &geo);
+    struct wlr_box geo = toplevel->xdg_toplevel->base->geometry;
 
     corners_destroy_buf(&toplevel->corner_mask_buf);
     struct wlr_scene_buffer *buf = corners_build(toplevel->scene_tree,
-        toplevel->server->renderer, toplevel->server->cfg.corner_radius,
-        geo.width, geo.height);
+        toplevel->server->cfg.corner_radius, geo.width, geo.height);
     if (buf)
         toplevel->corner_mask_buf = buf;
 }
@@ -127,7 +119,7 @@ void kum_xwayland_corners_apply(struct kum_xwayland_surface *xs)
 
     corners_destroy_buf(&xs->corner_mask_buf);
     struct wlr_scene_buffer *buf = corners_build(xs->scene_tree,
-        xs->server->renderer, xs->server->cfg.corner_radius,
+        xs->server->cfg.corner_radius,
         xs->xwayland_surface->width, xs->xwayland_surface->height);
     if (buf)
         xs->corner_mask_buf = buf;

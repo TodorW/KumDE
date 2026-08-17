@@ -1,4 +1,5 @@
 #include "kumde.h"
+#include <stdlib.h>
 #include <string.h>
 
 static const kum_output_config *find_config(struct kum_server *server,

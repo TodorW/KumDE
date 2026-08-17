@@ -74,10 +74,27 @@ static void new_keyboard(struct kum_server *server,
     wl_list_insert(&server->keyboards, &kb->link);
 }
 
+static void pointer_destroy(struct wl_listener *listener, void *data)
+{
+    struct kum_pointer *p = wl_container_of(listener, p, destroy);
+    wl_list_remove(&p->destroy.link);
+    wl_list_remove(&p->link);
+    free(p);
+}
+
 static void new_pointer(struct kum_server *server,
                         struct wlr_input_device *device)
 {
     wlr_cursor_attach_input_device(server->cursor, device);
+
+    struct kum_pointer *p = calloc(1, sizeof(*p));
+    p->server = server;
+    p->device = device;
+    p->destroy.notify = pointer_destroy;
+    wl_signal_add(&device->events.destroy, &p->destroy);
+    wl_list_insert(&server->pointers, &p->link);
+
+    kum_input_configure_device(server, device);
 }
 
 void kum_new_input(struct wl_listener *listener, void *data)
@@ -119,8 +136,7 @@ static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
     int nx, ny;
     wlr_scene_node_coords(&tl->scene_tree->node, &nx, &ny);
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
 
     int edge_px = 8;
     int rx = (int)lx - nx;

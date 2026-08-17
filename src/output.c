@@ -15,10 +15,12 @@ static void tick_animations(struct kum_server *server)
         float v = tl->anim.current;
 
         if (tl->anim.type == ANIM_OPENING || tl->anim.type == ANIM_CLOSING) {
+            /* wlroots' scene graph has no generic per-node/per-tree
+             * opacity, only per-buffer (wlr_scene_buffer_set_opacity),
+             * which doesn't compose across a toplevel's whole subtree
+             * (surface + border + shadow + corner mask). Open/close is
+             * a hard show/hide rather than a fade. */
             wlr_scene_node_set_enabled(&tl->scene_tree->node, v > 0.05f);
-#if WLR_VERSION_MINOR >= 18
-            wlr_scene_node_set_opacity(&tl->scene_tree->node, v);
-#endif
         } else if (tl->anim.type == ANIM_FOCUSING) {
             kum_border_update(tl, true);
         }

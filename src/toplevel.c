@@ -117,8 +117,7 @@ static void toplevel_center_on_output(struct kum_toplevel *tl,
     if (!output)
         return;
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
 
     struct wlr_box area = output->usable_area;
     int x = area.x + (area.width  - geo.width)  / 2;
@@ -194,8 +193,7 @@ static void toplevel_commit(struct wl_listener *listener, void *data)
         kum_border_update(tl, tl == tl->server->focused);
 
     if (tl->shadow_buf) {
-        struct wlr_box geo;
-        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+        struct wlr_box geo = tl->xdg_toplevel->base->geometry;
         if (geo.width  != tl->last_geo.width ||
             geo.height != tl->last_geo.height) {
             kum_shadow_update(tl);
@@ -229,8 +227,7 @@ static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
     struct kum_workspace *ws = &tl->server->workspaces[tl->workspace];
     if (ws->layout == LAYOUT_TILE && !tl->floating) {
         tl->floating = true;
-        struct wlr_box geo;
-        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+        struct wlr_box geo = tl->xdg_toplevel->base->geometry;
         tl->saved_geom = geo;
         struct kum_output *output = output_for_toplevel(tl);
         kum_workspace_arrange(tl->server, output, tl->workspace);
@@ -241,8 +238,7 @@ static void begin_interactive(struct kum_toplevel *tl, enum wlr_edges edges)
     tl->grab_x       = (int)tl->server->cursor->x;
     tl->grab_y       = (int)tl->server->cursor->y;
 
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
 
     int nx, ny;
     wlr_scene_node_coords(&tl->scene_tree->node, &nx, &ny);
@@ -279,8 +275,7 @@ static void request_maximize(struct wl_listener *listener, void *data)
     struct kum_output *output = output_for_toplevel(tl);
     if (!output)
         return;
-    struct wlr_box geo;
-    wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+    struct wlr_box geo = tl->xdg_toplevel->base->geometry;
     tl->saved_geom = geo;
     struct wlr_box area = output->usable_area;
     wlr_xdg_toplevel_set_size(tl->xdg_toplevel, area.width, area.height);
@@ -293,8 +288,7 @@ void kum_toplevel_set_fullscreen(struct kum_toplevel *tl, bool fs)
     if (fs) {
         struct kum_output *output = output_for_toplevel(tl);
         if (output) {
-            struct wlr_box geo;
-            wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+            struct wlr_box geo = tl->xdg_toplevel->base->geometry;
             tl->saved_geom = geo;
             struct wlr_box full;
             wlr_output_layout_get_box(tl->server->output_layout,

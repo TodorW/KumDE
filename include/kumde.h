@@ -22,6 +22,7 @@
 #include <wlr/types/wlr_server_decoration.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_primary_selection.h>
+#include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/util/log.h>
@@ -87,6 +88,7 @@ struct kum_server {
     struct wlr_backend              *backend;
     struct wlr_renderer             *renderer;
     struct wlr_allocator            *allocator;
+    struct wlr_compositor            *compositor;
     struct wlr_scene                *scene;
     struct wlr_scene_output_layout  *scene_layout;
     struct wlr_output_layout        *output_layout;
@@ -99,6 +101,7 @@ struct kum_server {
     struct wl_list  outputs;
     struct wl_list  toplevels;
     struct wl_list  keyboards;
+    struct wl_list  pointers;
     struct wl_list  keybinds;
     struct wl_list  ipc_clients;
     struct wl_list  layer_surfaces;
@@ -175,6 +178,13 @@ struct kum_keyboard {
     struct wl_listener   modifiers;
     struct wl_listener   key;
     struct wl_listener   destroy;
+};
+
+struct kum_pointer {
+    struct wl_list            link;
+    struct kum_server        *server;
+    struct wlr_input_device  *device;
+    struct wl_listener        destroy;
 };
 
 struct kum_popup {
@@ -339,6 +349,8 @@ void kum_workspace_monocle_arrange(struct kum_server *server,
 void kum_keybind_setup_extended(struct kum_server *server);
 
 void kum_input_configure(struct kum_server *server);
+void kum_input_configure_device(struct kum_server *server,
+    struct wlr_input_device *device);
 void kum_output_configure_all(struct kum_server *server);
 void kum_autostart_run(struct kum_server *server);
 void kum_kb_layout_next(struct kum_server *server);

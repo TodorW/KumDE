@@ -52,8 +52,7 @@ void kum_tiling_resize(struct kum_server *server, int dw, int dh)
         }
         if (output) kum_workspace_arrange(server, output, tl->workspace);
     } else {
-        struct wlr_box geo;
-        wlr_xdg_surface_get_geometry(tl->xdg_toplevel->base, &geo);
+        struct wlr_box geo = tl->xdg_toplevel->base->geometry;
         int nw = geo.width  + dw;
         int nh = geo.height + dh;
         if (nw < KUM_RESIZE_MIN_W) nw = KUM_RESIZE_MIN_W;
