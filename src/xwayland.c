@@ -356,8 +356,8 @@ static void handle_xwayland_ready(struct wl_listener *listener, void *data)
 
 void kum_xwayland_init(struct kum_server *server)
 {
-    wl_list_init(&server->xwayland_surfaces);
-
+    /* server->xwayland_surfaces is initialized unconditionally in
+     * kum_server_init(), not here -- see the comment there. */
     server->xwayland = wlr_xwayland_create(server->display,
         server->compositor, false);
 

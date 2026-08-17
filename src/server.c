@@ -228,6 +228,18 @@ void kum_server_init(struct kum_server *server)
         goto fatal;
 
     wl_list_init(&server->toplevels);
+#ifdef KUM_XWAYLAND
+    /* Initialized unconditionally (not just when cfg.xwayland is true and
+     * kum_xwayland_init() actually runs): every wl_list_for_each() over
+     * this list throughout the codebase is guarded only by #ifdef
+     * KUM_XWAYLAND, not by the runtime config flag, so it must always be
+     * a valid empty list when XWayland support is compiled in but not
+     * enabled at runtime -- otherwise it's four zeroed-out NULL pointers
+     * left over from kum_server_init()'s memset(), and the first
+     * wl_list_for_each() over it (e.g. on the very first cursor motion
+     * event) segfaults immediately. */
+    wl_list_init(&server->xwayland_surfaces);
+#endif
 
     kum_workspace_init(server);
     kum_rules_init(server);
