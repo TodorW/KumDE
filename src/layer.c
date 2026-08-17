@@ -40,7 +40,14 @@ static void recalculate_usable_area(struct kum_server *server,
         wl_list_for_each(ls, &server->layer_surfaces, link) {
             if (ls->wlr_layer_surface->output != output->wlr_output)
                 continue;
-            if (!ls->wlr_layer_surface->surface->mapped)
+            /* A surface must also be configured on its initial commit (no
+             * buffer attached yet, so surface->mapped is still false) --
+             * otherwise a spec-compliant client waits forever for that
+             * first configure and never attaches a buffer to become
+             * mapped at all. initial_commit is true only while this exact
+             * commit is being processed, so this can't re-fire later. */
+            if (!ls->wlr_layer_surface->surface->mapped &&
+                !ls->wlr_layer_surface->initial_commit)
                 continue;
             if ((int)ls->wlr_layer_surface->current.layer != layer)
                 continue;
