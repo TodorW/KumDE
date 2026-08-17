@@ -289,7 +289,7 @@ Locks all outputs using `ext-session-lock-v1`. Shows the time and a password dot
 kumclip
 ```
 
-Runs in the background and takes ownership of the Wayland selection whenever a client sets one, keeping the last copied text alive after the source application closes (clipboard persistence). Text-only (`text/plain`, `text/plain;charset=utf-8`, `UTF8_STRING`, `STRING`).
+Runs in the background and takes ownership of the Wayland selection whenever a client sets one, keeping the last copied content alive after the source application closes (clipboard persistence). Text (`text/plain`, `text/plain;charset=utf-8`, `UTF8_STRING`, `STRING`) and images (`image/png`, `image/jpeg`), up to 32MB.
 
 ---
 

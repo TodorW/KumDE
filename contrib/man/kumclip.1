@@ -6,13 +6,18 @@ kumclip \- clipboard persistence daemon for KumDE
 .SH DESCRIPTION
 kumclip runs in the background and takes ownership of the Wayland
 selection whenever another client sets one, keeping the last copied
-text available after the source application exits. This is the same
-role tools like wl-clip-persist fill on other compositors.
+content available after the source application exits. This is the
+same role tools like wl-clip-persist fill on other compositors.
 .PP
-Text only:
+Text:
 .BR text/plain ,
 .BR text/plain;charset=utf-8 ,
 .BR UTF8_STRING ,
 .BR STRING .
+.PP
+Images:
+.BR image/png ,
+.BR image/jpeg ,
+up to 32MB.
 .SH SEE ALSO
 .BR kumde (1)
