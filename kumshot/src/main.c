@@ -86,9 +86,15 @@ static void frame_buffer(void *data,
     o->data = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (o->data == MAP_FAILED) { close(fd); o->failed = true; return; }
 
+    /* Must use the exact format the compositor advertised in this event --
+     * wlroots' screencopy implementation rejects a mismatched format (e.g.
+     * its GLES2 renderer reads back ARGB8888, not XRGB8888) with a
+     * zwlr_screencopy_frame_v1 protocol error and the copy never happens.
+     * save_png()'s CAIRO_FORMAT_RGB24 ignores the alpha byte either way, so
+     * this is safe regardless of which of the two the compositor picks. */
     struct wl_shm_pool *pool = wl_shm_create_pool(app.shm, fd, (int32_t)size);
     struct wl_buffer *buf = wl_shm_pool_create_buffer(pool, 0,
-        width, height, stride, WL_SHM_FORMAT_XRGB8888);
+        width, height, stride, format);
     wl_shm_pool_destroy(pool);
     close(fd);
 
@@ -444,8 +450,6 @@ static bool run_region_select(shot_output **out_output,
         return false;
     }
 
-    app.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-
     for (int i = 0; i < app.output_count; i++) {
         shot_output *so = &app.outputs[i];
         so->overlay_surface = wl_compositor_create_surface(app.compositor);
@@ -518,6 +522,12 @@ int main(int argc, char *argv[])
 
     app.display = wl_display_connect(NULL);
     if (!app.display) { fprintf(stderr,"kumshot: cannot connect\n"); return 1; }
+
+    /* kb_keymap() fires from the global wl_keyboard listener whenever the
+     * compositor sends a keymap, regardless of -r/region mode -- it needs
+     * a valid xkb_ctx even in plain screenshot mode, or xkbcommon
+     * segfaults dereferencing a NULL context. */
+    app.xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
     app.registry = wl_display_get_registry(app.display);
     wl_registry_add_listener(app.registry, &reg_listener, NULL);
