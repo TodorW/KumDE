@@ -411,6 +411,18 @@ kumde/
 
 ---
 
+## Packaging
+
+Arch: `packaging/arch/PKGBUILD` (`kumde-git`, no tagged releases exist yet). Build and install locally with `cd packaging/arch && makepkg -si`.
+
+---
+
+## Testing
+
+`meson test -C build` runs the unit tests under `tests/` -- config parsing (including config-file section-scoping edge cases), JSON escaping, and animation timing. These are the parts of the codebase with no wlroots dependency, so they build and run without a Wayland session. The compositor and companion binaries themselves aren't covered by automated tests; verify those by actually running them (`./build/kumde` nested inside an existing session, or from a TTY).
+
+---
+
 ## License
 
 MIT. See `LICENSE`.

@@ -1,0 +1,37 @@
+# Maintainer: TodorW <vuk.todorovic@protonmail.com>
+pkgname=kumde-git
+pkgver=r0.0000000
+pkgrel=1
+pkgdesc="A minimal Wayland compositor with a full companion suite (status bar, launcher, wallpaper, lock, clipboard, idle/DPMS, notifications, screenshots)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/TodorW/KumDE"
+license=('MIT')
+depends=('wlroots0.20' 'wayland' 'libxkbcommon' 'libinput' 'cairo' 'pam')
+makedepends=('meson' 'ninja' 'wayland-protocols' 'git' 'libxcb')
+optdepends=('wireplumber: volume keys via wpctl'
+            'brightnessctl: brightness keys'
+            'xorg-xwayland: run X11 applications under kumde'
+            'foot: default terminal spawned on startup'
+            'greetd: login-manager session integration')
+provides=('kumde')
+conflicts=('kumde')
+source=("$pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  meson setup --prefix=/usr -Dxwayland=enabled "$pkgname" build
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}
