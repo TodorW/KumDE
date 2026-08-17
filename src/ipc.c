@@ -15,6 +15,56 @@ static void ipc_reply(struct kum_ipc_client *client, const char *msg)
     send(client->fd, msg, strlen(msg), MSG_NOSIGNAL | MSG_DONTWAIT);
 }
 
+static int build_occupancy_msg(struct kum_server *server, char *msg, size_t cap)
+{
+    bool occupied[KUM_WORKSPACE_COUNT] = {0};
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &server->toplevels, link) {
+        if (tl->workspace >= 0 && tl->workspace < KUM_WORKSPACE_COUNT)
+            occupied[tl->workspace] = true;
+    }
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (xs->workspace >= 0 && xs->workspace < KUM_WORKSPACE_COUNT)
+            occupied[xs->workspace] = true;
+    }
+#endif
+
+    int pos = 0;
+    pos += snprintf(msg + pos, cap - pos,
+        "{\"event\":\"occupancy\",\"ws\":[");
+    for (int i = 0; i < KUM_WORKSPACE_COUNT; i++) {
+        pos += snprintf(msg + pos, cap - pos,
+            "%s%d", i == 0 ? "" : ",", occupied[i] ? 1 : 0);
+    }
+    pos += snprintf(msg + pos, cap - pos, "]}\n");
+    return pos;
+}
+
+/* A client that connects after windows already exist and workspaces have
+ * already been switched (kumbar (re)started later, or attached manually)
+ * would otherwise see stale/blank state until the next live event of each
+ * type happens to fire -- kum_ipc_broadcast_* only reaches clients already
+ * connected at the time they're called. */
+static void ipc_send_initial_state(struct kum_ipc_client *client)
+{
+    struct kum_server *server = client->server;
+
+    struct kum_output *o;
+    wl_list_for_each(o, &server->outputs, link) {
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+            "{\"event\":\"workspace\",\"output\":\"%s\",\"index\":%d}\n",
+            o->wlr_output->name, o->active_workspace);
+        ipc_reply(client, msg);
+    }
+
+    char msg[256];
+    build_occupancy_msg(server, msg, sizeof(msg));
+    ipc_reply(client, msg);
+}
+
 static void ipc_handle_command(struct kum_ipc_client *client, const char *msg)
 {
     struct kum_server *server = client->server;
@@ -163,6 +213,7 @@ static int handle_new_connection(int fd, uint32_t mask, void *data)
         WL_EVENT_READABLE, handle_client_readable, client);
 
     wl_list_insert(&server->ipc_clients, &client->link);
+    ipc_send_initial_state(client);
     return 0;
 }
 
@@ -261,29 +312,7 @@ void kum_ipc_broadcast_window_title(struct kum_server *server,
 
 void kum_ipc_broadcast_occupancy(struct kum_server *server)
 {
-    bool occupied[KUM_WORKSPACE_COUNT] = {0};
-    struct kum_toplevel *tl;
-    wl_list_for_each(tl, &server->toplevels, link) {
-        if (tl->workspace >= 0 && tl->workspace < KUM_WORKSPACE_COUNT)
-            occupied[tl->workspace] = true;
-    }
-#ifdef KUM_XWAYLAND
-    struct kum_xwayland_surface *xs;
-    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
-        if (xs->workspace >= 0 && xs->workspace < KUM_WORKSPACE_COUNT)
-            occupied[xs->workspace] = true;
-    }
-#endif
-
     char msg[256];
-    int  pos = 0;
-    pos += snprintf(msg + pos, sizeof(msg) - pos,
-        "{\"event\":\"occupancy\",\"ws\":[");
-    for (int i = 0; i < KUM_WORKSPACE_COUNT; i++) {
-        pos += snprintf(msg + pos, sizeof(msg) - pos,
-            "%s%d", i == 0 ? "" : ",", occupied[i] ? 1 : 0);
-    }
-    pos += snprintf(msg + pos, sizeof(msg) - pos, "]}\n");
-
+    int  pos = build_occupancy_msg(server, msg, sizeof(msg));
     kum_ipc_broadcast(server, msg, pos);
 }
