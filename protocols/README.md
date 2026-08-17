@@ -1,8 +1,9 @@
 # Vendored protocols
 
-`wlr-layer-shell-unstable-v1.xml` and `wlr-screencopy-unstable-v1.xml` are
-copied verbatim (MIT-style license retained in each file's `<copyright>`
-header) from the [wlr-protocols](https://gitlab.freedesktop.org/wlroots/wlr-protocols)
+`wlr-layer-shell-unstable-v1.xml`, `wlr-screencopy-unstable-v1.xml`, and
+`wlr-data-control-unstable-v1.xml` are copied verbatim (MIT-style license
+retained in each file's `<copyright>` header) from the
+[wlr-protocols](https://gitlab.freedesktop.org/wlroots/wlr-protocols)
 project.
 
 These are wlroots-specific protocol extensions -- unlike `xdg-shell` or
