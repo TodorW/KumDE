@@ -4,6 +4,8 @@ A minimal Wayland compositor written in C, built on [wlroots](https://gitlab.fre
 
 Ships with a full companion suite: status bar, app launcher, wallpaper client, screen lock, clipboard persistence, idle/DPMS/autolock daemon, notification daemon, screenshot tool, and a CLI tool for scripting.
 
+Want to build or change this? See `CONTRIBUTING.md`.
+
 ---
 
 ## Programs
@@ -409,7 +411,7 @@ kumde/
 | wp-viewporter | kumde |
 | primary-selection-unstable-v1 | kumde |
 | wl_data_device_manager (core) | kumclip |
-| xdg-output-unstable-v1 | kumbar |
+| xdg-output-unstable-v1 | kumde, kumbar, kumshot |
 
 ---
 
@@ -423,7 +425,7 @@ Debian: `packaging/debian/` (targets Debian sid, the only release currently ship
 
 ## Testing
 
-`meson test -C build` runs the unit tests under `tests/` -- config parsing (including config-file section-scoping edge cases), JSON escaping, and animation timing. These are the parts of the codebase with no wlroots dependency, so they build and run without a Wayland session. The compositor and companion binaries themselves aren't covered by automated tests; verify those by actually running them (`./build/kumde` nested inside an existing session, or from a TTY).
+`meson test -C build` runs the tests under `tests/`: config parsing (including config-file section-scoping edge cases), JSON escaping, and animation timing (the parts of the codebase with no wlroots dependency, so they build and run without a Wayland session), plus a headless smoke test that actually boots kumde (wlroots' headless backend + software rendering, no GPU or display needed) and verifies a real screenshot came back rendered, not blank. See `CONTRIBUTING.md` for the live-testing methodology this project relies on beyond that -- most real bugs here have only ever surfaced by actually running the compositor and looking at the result.
 
 ---
 
