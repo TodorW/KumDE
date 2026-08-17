@@ -189,6 +189,14 @@ static void toplevel_commit(struct wl_listener *listener, void *data)
     struct kum_toplevel  *tl = wl_container_of(listener, tl, commit);
     struct kum_workspace *ws = &tl->server->workspaces[tl->workspace];
 
+    /* The client's first wl_surface.commit() (no buffer attached yet) is
+     * the "initial commit" -- the compositor must respond with the first
+     * configure or a spec-compliant client waits forever and never attaches
+     * a buffer, so the toplevel never maps. Without this every xdg-shell
+     * client hangs invisibly on startup. */
+    if (tl->xdg_toplevel->base->initial_commit)
+        wlr_xdg_surface_schedule_configure(tl->xdg_toplevel->base);
+
     if (ws->layout == LAYOUT_TILE && !tl->floating)
         kum_border_update(tl, tl == tl->server->focused);
 
