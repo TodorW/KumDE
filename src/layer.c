@@ -135,11 +135,17 @@ void kum_new_layer_surface(struct wl_listener *listener, void *data)
 
     wl_list_insert(&server->layer_surfaces, &ls->link);
 
-    struct wlr_box full, usable;
-    wlr_output_layout_get_box(server->output_layout, wlr_ls->output, &full);
-    usable = full;
-    wlr_scene_layer_surface_v1_configure(ls->scene_layer, &full, &usable);
-
+    /* Do NOT call wlr_scene_layer_surface_v1_configure() here: this handler
+     * runs synchronously off wlr_layer_shell_v1's new_surface signal, which
+     * fires the instant the client requests get_layer_surface() -- long
+     * before the client's wl_surface has gone through its first commit.
+     * wlroots asserts surface->initialized inside
+     * wlr_layer_surface_v1_configure(), so configuring this early aborts
+     * the whole compositor the moment any layer-shell client (e.g. kumbar)
+     * connects. recalculate_usable_area() already skips any layer surface
+     * whose wl_surface isn't mapped yet, so the real first configure
+     * happens safely from layer_map()/layer_commit() once the client has
+     * actually committed. */
     struct kum_output *output = output_from_wlr(server, wlr_ls->output);
     if (output)
         recalculate_usable_area(server, output);
