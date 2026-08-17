@@ -1,0 +1,35 @@
+Source: kumde
+Section: x11
+Priority: optional
+Maintainer: TodorW <vuk.todorovic@protonmail.com>
+Build-Depends: debhelper-compat (= 13),
+               meson (>= 0.60),
+               ninja-build,
+               pkgconf,
+               wayland-protocols,
+               libwayland-dev,
+               libwlroots-0.20-dev,
+               libxkbcommon-dev,
+               libinput-dev,
+               libcairo2-dev,
+               libpam0g-dev,
+               libxcb1-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/TodorW/KumDE
+Rules-Requires-Root: no
+
+Package: kumde
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: xwayland
+Suggests: wireplumber, brightnessctl, foot, greetd
+Description: minimal Wayland compositor with a full companion suite
+ KumDE is a wlroots-based Wayland compositor with a companion suite of
+ binaries: kumbar (status bar), kumlauncher (application launcher),
+ kumwall (wallpaper), kumlock (session lock), kumclip (clipboard
+ manager), kumidle (idle/DPMS handling), kumnotify (notification
+ daemon), kumshot (screenshot tool), and kumde-msg (IPC client).
+ .
+ Supports tiling and floating window layouts, multi-monitor output
+ configuration, XWayland for running X11 applications, and session
+ locking via ext-session-lock-v1.

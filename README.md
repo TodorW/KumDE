@@ -417,6 +417,8 @@ kumde/
 
 Arch: `packaging/arch/PKGBUILD` (`kumde-git`, no tagged releases exist yet). Build and install locally with `cd packaging/arch && makepkg -si`.
 
+Debian: `packaging/debian/` (targets Debian sid, the only release currently shipping `libwlroots-0.20-dev`). See `packaging/debian/README.md` for build instructions.
+
 ---
 
 ## Testing

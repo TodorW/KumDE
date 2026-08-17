@@ -1,0 +1,6 @@
+kumde (0.8.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging, built from the repository's default branch
+    (no tagged releases exist yet).
+
+ -- TodorW <vuk.todorovic@protonmail.com>  Tue, 18 Aug 2026 00:04:11 +0200
