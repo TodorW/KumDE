@@ -99,6 +99,7 @@ static void server_setup_globals(struct kum_server *server)
     wlr_subcompositor_create(server->display);
     wlr_data_device_manager_create(server->display);
     wlr_primary_selection_v1_device_manager_create(server->display);
+    wlr_data_control_manager_v1_create(server->display);
     wlr_viewporter_create(server->display);
     wlr_screencopy_manager_v1_create(server->display);
     wlr_server_decoration_manager_create(server->display);
