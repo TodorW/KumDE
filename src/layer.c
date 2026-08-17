@@ -87,6 +87,27 @@ static void layer_commit(struct wl_listener *listener, void *data)
     if (!wlr_out)
         return;
 
+    /* recalculate_usable_area() reconfigures every mapped layer surface on
+     * the output, not just this one, so calling it on every single commit
+     * turns any surface's plain content-only redraw (no layout change) into
+     * a reconfigure storm across every other layer-shell client -- live
+     * testing hit this immediately with kumbar/kumlauncher/kumnotify
+     * running together: kumwall and kumlauncher each crashed with SIGBUS
+     * inside cairo on a redundant re-render triggered by an unrelated
+     * surface's commit. Only recompute when this is the surface's initial
+     * commit or something that actually affects layout changed. */
+    static const uint32_t LAYOUT_BITS =
+        WLR_LAYER_SURFACE_V1_STATE_DESIRED_SIZE |
+        WLR_LAYER_SURFACE_V1_STATE_ANCHOR |
+        WLR_LAYER_SURFACE_V1_STATE_EXCLUSIVE_ZONE |
+        WLR_LAYER_SURFACE_V1_STATE_MARGIN |
+        WLR_LAYER_SURFACE_V1_STATE_LAYER |
+        WLR_LAYER_SURFACE_V1_STATE_EXCLUSIVE_EDGE;
+
+    if (!ls->wlr_layer_surface->initial_commit &&
+        !(ls->wlr_layer_surface->current.committed & LAYOUT_BITS))
+        return;
+
     struct kum_output *output = output_from_wlr(ls->server, wlr_out);
     if (output)
         recalculate_usable_area(ls->server, output);
