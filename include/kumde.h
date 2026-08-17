@@ -98,7 +98,7 @@ struct kum_runtime_config {
     float   pointer_accel;
     char    autostart[16][256];
     int     autostart_count;
-    struct kum_output_config output_configs[8];
+    kum_output_config output_configs[8];
     int     output_config_count;
 };
 
