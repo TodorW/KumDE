@@ -661,7 +661,12 @@ int main(int argc, char *argv[])
         app.layer_shell, app.surface, NULL,
         ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "kumlauncher");
 
-    zwlr_layer_surface_v1_set_size(app.layer_surface, WIDTH, 0);
+    /* height must be non-zero unless both TOP and BOTTOM are anchored (the
+     * protocol requires the compositor be able to derive an unspecified
+     * dimension from opposing anchors); we only anchor TOP, so start at the
+     * empty-list height and let render() grow it via set_size() once the
+     * real row count is known. */
+    zwlr_layer_surface_v1_set_size(app.layer_surface, WIDTH, ITEM_HEIGHT + 4);
     zwlr_layer_surface_v1_set_anchor(app.layer_surface,
         ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
     zwlr_layer_surface_v1_set_keyboard_interactivity(app.layer_surface,
