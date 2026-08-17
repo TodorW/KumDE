@@ -34,6 +34,7 @@ sources = files(
   'src/keybind.c',
   'src/border.c',
   'src/easing.c',
+  'src/jsonutil.c',
   'src/layer.c',
   'src/workspace.c',
   'src/conf.c',

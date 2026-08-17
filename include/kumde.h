@@ -37,6 +37,7 @@
 
 #include "config.h"
 #include "easing.h"
+#include "jsonutil.h"
 
 #define KUM_WORKSPACE_COUNT 9
 
@@ -345,7 +346,6 @@ void kum_ipc_broadcast(struct kum_server *server, const char *msg, int len);
 void kum_ipc_broadcast_occupancy(struct kum_server *server);
 void kum_ipc_broadcast_window_title(struct kum_server *server,
     int workspace, const char *title);
-void kum_json_escape(char *dst, size_t dst_size, const char *src);
 
 #ifdef KUM_XWAYLAND
 void kum_xwayland_init(struct kum_server *server);
