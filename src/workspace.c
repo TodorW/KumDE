@@ -97,6 +97,35 @@ void kum_workspace_arrange(struct kum_server *server,
     }
 }
 
+/* Windows in a workspace are positioned in the global scene-graph coordinate
+ * space of whichever output last showed that workspace. When a workspace
+ * moves to a different output (swap below), its windows must be shifted by
+ * the delta between the two outputs' layout origins, or they keep rendering
+ * over the output that no longer shows them and vanish from view entirely. */
+static void workspace_translate(struct kum_server *server, int ws_index,
+    int dx, int dy)
+{
+    if (dx == 0 && dy == 0)
+        return;
+
+    struct kum_toplevel *tl;
+    wl_list_for_each(tl, &server->workspaces[ws_index].toplevels, workspace_link) {
+        int x, y;
+        wlr_scene_node_coords(&tl->scene_tree->node, &x, &y);
+        wlr_scene_node_set_position(&tl->scene_tree->node, x + dx, y + dy);
+    }
+#ifdef KUM_XWAYLAND
+    struct kum_xwayland_surface *xs;
+    wl_list_for_each(xs, &server->xwayland_surfaces, link) {
+        if (xs->workspace != ws_index)
+            continue;
+        int x, y;
+        wlr_scene_node_coords(&xs->scene_tree->node, &x, &y);
+        wlr_scene_node_set_position(&xs->scene_tree->node, x + dx, y + dy);
+    }
+#endif
+}
+
 void kum_workspace_switch(struct kum_server *server,
     struct kum_output *output, int index)
 {
@@ -108,6 +137,7 @@ void kum_workspace_switch(struct kum_server *server,
         return;
 
     int prev = output->active_workspace;
+    bool prev_stays_visible = false;
 
     struct kum_output *other;
     wl_list_for_each(other, &server->outputs, link) {
@@ -116,13 +146,22 @@ void kum_workspace_switch(struct kum_server *server,
             other->active_workspace   = prev;
             wlr_scene_node_set_enabled(
                 &server->workspaces[prev].scene_tree->node, true);
+            workspace_translate(server, prev,
+                other->usable_area.x - output->usable_area.x,
+                other->usable_area.y - output->usable_area.y);
+            workspace_translate(server, index,
+                output->usable_area.x - other->usable_area.x,
+                output->usable_area.y - other->usable_area.y);
             ipc_broadcast_workspace(server, other, prev);
+            prev_stays_visible = true;
             break;
         }
     }
 
-    wlr_scene_node_set_enabled(
-        &server->workspaces[prev].scene_tree->node, false);
+    if (!prev_stays_visible) {
+        wlr_scene_node_set_enabled(
+            &server->workspaces[prev].scene_tree->node, false);
+    }
 
     output->previous_workspace = prev;
     output->active_workspace   = index;
