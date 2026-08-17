@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <linux/input-event-codes.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,8 @@ static struct {
     struct wl_shm                   *shm;
     struct wl_seat                  *seat;
     struct wl_keyboard              *keyboard;
+    struct wl_pointer                *pointer;
+    double                            pointer_y;
     struct zwlr_layer_shell_v1      *layer_shell;
     struct wl_surface               *surface;
     struct zwlr_layer_surface_v1    *layer_surface;
@@ -571,11 +574,94 @@ static const struct wl_keyboard_listener kb_listener = {
     .repeat_info = kb_repeat_info,
 };
 
+/* Row i (0-indexed, visible position) occupies
+ * [ITEM_HEIGHT + i*ITEM_HEIGHT, ITEM_HEIGHT + (i+1)*ITEM_HEIGHT) -- must
+ * match render()'s layout exactly. Returns the corresponding index into
+ * app.filtered, or -1 if y isn't over a row (e.g. still over the search
+ * box, or past the last visible row). */
+static int row_at(double y)
+{
+    if (y < ITEM_HEIGHT)
+        return -1;
+    int row = (int)((y - ITEM_HEIGHT) / ITEM_HEIGHT);
+    int idx = app.scroll + row;
+    if (row < 0 || idx >= app.filtered_count)
+        return -1;
+    int rows = app.filtered_count < VISIBLE_ROWS
+        ? app.filtered_count : VISIBLE_ROWS;
+    if (row >= rows)
+        return -1;
+    return idx;
+}
+
+static void ptr_enter(void *d, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surf, wl_fixed_t x, wl_fixed_t y)
+{
+    app.pointer_y = wl_fixed_to_double(y);
+}
+static void ptr_leave(void *d, struct wl_pointer *p, uint32_t serial,
+    struct wl_surface *surf) {}
+static void ptr_motion(void *d, struct wl_pointer *p, uint32_t time,
+    wl_fixed_t x, wl_fixed_t y)
+{
+    app.pointer_y = wl_fixed_to_double(y);
+    int idx = row_at(app.pointer_y);
+    if (idx >= 0 && idx != app.selected) {
+        app.selected = idx;
+        render();
+    }
+}
+static void ptr_button(void *d, struct wl_pointer *p, uint32_t serial,
+    uint32_t time, uint32_t button, uint32_t state)
+{
+    if (button != BTN_LEFT || state != WL_POINTER_BUTTON_STATE_PRESSED)
+        return;
+    int idx = row_at(app.pointer_y);
+    if (idx < 0)
+        return;
+    app.selected = idx;
+    launch_selected();
+}
+static void ptr_axis(void *d, struct wl_pointer *p, uint32_t time,
+    uint32_t axis, wl_fixed_t value)
+{
+    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
+        return;
+    if (value > 0 && app.selected < app.filtered_count - 1) {
+        app.selected++;
+        if (app.selected >= app.scroll + VISIBLE_ROWS)
+            app.scroll = app.selected - VISIBLE_ROWS + 1;
+        render();
+    } else if (value < 0 && app.selected > 0) {
+        app.selected--;
+        if (app.selected < app.scroll)
+            app.scroll = app.selected;
+        render();
+    }
+}
+static void ptr_frame(void *d, struct wl_pointer *p) {}
+static void ptr_axis_source(void *d, struct wl_pointer *p, uint32_t src) {}
+static void ptr_axis_stop(void *d, struct wl_pointer *p,
+    uint32_t time, uint32_t axis) {}
+static void ptr_axis_discrete(void *d, struct wl_pointer *p,
+    uint32_t axis, int32_t discrete) {}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter = ptr_enter, .leave = ptr_leave, .motion = ptr_motion,
+    .button = ptr_button, .axis = ptr_axis, .frame = ptr_frame,
+    .axis_source = ptr_axis_source, .axis_stop = ptr_axis_stop,
+    .axis_discrete = ptr_axis_discrete,
+};
+
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t caps)
 {
     if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !app.keyboard) {
         app.keyboard = wl_seat_get_keyboard(seat);
         wl_keyboard_add_listener(app.keyboard, &kb_listener, NULL);
+    }
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !app.pointer) {
+        app.pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(app.pointer, &pointer_listener, NULL);
     }
 }
 static void seat_name(void *d, struct wl_seat *s, const char *n) {}
