@@ -31,7 +31,7 @@ Ships with a full companion suite: status bar, app launcher, wallpaper client, s
 - meson, ninja
 
 **kumde**
-- wlroots 0.17 or 0.18
+- wlroots 0.17, 0.18, 0.19 or 0.20
 - libxkbcommon
 - libinput
 
@@ -48,8 +48,9 @@ Ships with a full companion suite: status bar, app launcher, wallpaper client, s
 
 **Arch Linux**
 ```
-pacman -S wlroots wayland wayland-protocols libxkbcommon libinput cairo pam meson ninja
+pacman -S wlroots0.20 wayland wayland-protocols libxkbcommon libinput cairo pam meson ninja
 ```
+Arch's wlroots package name is version-suffixed and changes as wlroots releases (currently `wlroots0.20`); run `pacman -Ss wlroots` if this stops matching.
 
 **Debian / Ubuntu 24.04**
 ```

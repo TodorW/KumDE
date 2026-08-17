@@ -5,9 +5,14 @@ project('kumde', 'c',
 
 cc = meson.get_compiler('c')
 
-wlroots = dependency('wlroots-0.18', required : false)
+wlroots = disabler()
+foreach v : ['0.20', '0.19', '0.18', '0.17']
+  if not wlroots.found()
+    wlroots = dependency('wlroots-@0@'.format(v), required : false)
+  endif
+endforeach
 if not wlroots.found()
-  wlroots = dependency('wlroots-0.17')
+  error('wlroots 0.17 through 0.20 not found (tried wlroots-0.17 .. wlroots-0.20)')
 endif
 
 wayland_server = dependency('wayland-server')
