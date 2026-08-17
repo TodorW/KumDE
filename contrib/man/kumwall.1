@@ -1,0 +1,21 @@
+.TH KUMWALL 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumwall \- wallpaper client for KumDE
+.SH SYNOPSIS
+.B kumwall
+[\fB\-c\fR \fIR G B\fR] [\fB\-i\fR \fIpath\fR]
+.SH DESCRIPTION
+kumwall paints a background layer-shell surface on every output: a
+solid color, or a PNG image scaled to fill (cropped to preserve aspect
+ratio). Run it before
+.BR kumbar (1)
+so it sits behind the bar on the layer stack.
+.SH OPTIONS
+.TP
+.B \-c \fIR G B\fR
+Solid color wallpaper, each channel 0.0\-1.0. Default: 0.08 0.08 0.12.
+.TP
+.B \-i \fIpath\fR
+PNG image wallpaper, scaled to fill each output.
+.SH SEE ALSO
+.BR kumde (1)

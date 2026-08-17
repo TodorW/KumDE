@@ -1,0 +1,20 @@
+.TH KUMBAR 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumbar \- status bar for KumDE
+.SH SYNOPSIS
+.B kumbar
+.SH DESCRIPTION
+kumbar is a layer-shell status bar that attaches to a running kumde
+compositor. It shows per-output workspace indicators (clickable \-\-
+left-click a workspace number to switch to it), the focused window's
+title, and a clock. Workspace and title updates arrive in real time
+over kumde's IPC socket; kumbar reconnects automatically if kumde
+restarts or the socket is briefly unavailable.
+.SH ENVIRONMENT
+.TP
+.B KUMDE_IPC
+Path to the kumde IPC socket. Set automatically by kumde; required for
+workspace/title updates and click-to-switch.
+.SH SEE ALSO
+.BR kumde (1),
+.BR kumde-msg (1)

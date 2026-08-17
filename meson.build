@@ -69,6 +69,12 @@ install_man('contrib/man/kumde.1')
 install_man('contrib/man/kumde-msg.1')
 install_man('contrib/man/kumshot.1')
 install_man('contrib/man/kumidle.1')
+install_man('contrib/man/kumbar.1')
+install_man('contrib/man/kumlauncher.1')
+install_man('contrib/man/kumwall.1')
+install_man('contrib/man/kumlock.1')
+install_man('contrib/man/kumclip.1')
+install_man('contrib/man/kumnotify.1')
 
 install_data('contrib/kumde.conf',
   install_dir : get_option('datadir') / 'kumde')

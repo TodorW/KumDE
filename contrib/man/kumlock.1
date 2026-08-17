@@ -1,0 +1,31 @@
+.TH KUMLOCK 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumlock \- screen locker for KumDE
+.SH SYNOPSIS
+.B kumlock
+.SH DESCRIPTION
+kumlock locks all outputs using the
+.B ext-session-lock-v1
+protocol. It shows the current time, date, username, and a password
+dot indicator (one dot per character typed, capped, so length isn't
+directly readable). Password entry is verified against PAM using the
+.I login
+service.
+.PP
+Typically spawned by
+.BR kumidle (1)
+at its lock threshold, bound to a key (Super+Shift+l by default), or
+run manually before suspending.
+.SH KEY BINDINGS
+.TP
+.B Enter
+Attempt to unlock.
+.TP
+.B Backspace
+Delete the last character.
+.TP
+.B Escape
+Clear the current input.
+.SH SEE ALSO
+.BR kumde (1),
+.BR kumidle (1)

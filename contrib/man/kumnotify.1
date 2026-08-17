@@ -1,0 +1,24 @@
+.TH KUMNOTIFY 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumnotify \- notification daemon for KumDE
+.SH SYNOPSIS
+.B kumnotify
+.SH DESCRIPTION
+kumnotify listens on a Unix datagram socket and pops up layer-shell
+notification bubbles in the top-right corner of the output, stacked
+and auto-dismissed after a timeout. Click a notification to dismiss
+it immediately. Urgency level tints the accent color (low, normal,
+critical).
+.PP
+Notifications are sent with
+.BR kumde-msg (1)\'s
+.B notify
+subcommand, which writes to the socket directly \-\- there is no
+D-Bus org.freedesktop.Notifications support.
+.SH SOCKET
+.I $XDG_RUNTIME_DIR/kumnotify.sock
+.br
+Wire format: \fBNOTIFY \fIapp\fB|\fIsummary\fB|\fIbody\fB|\fIurgency\fB|\fItimeout_ms\fR
+.SH SEE ALSO
+.BR kumde (1),
+.BR kumde-msg (1)

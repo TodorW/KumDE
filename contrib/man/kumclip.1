@@ -1,0 +1,18 @@
+.TH KUMCLIP 1 "2026" "kumde 0.8.0" "KumDE Manual"
+.SH NAME
+kumclip \- clipboard persistence daemon for KumDE
+.SH SYNOPSIS
+.B kumclip
+.SH DESCRIPTION
+kumclip runs in the background and takes ownership of the Wayland
+selection whenever another client sets one, keeping the last copied
+text available after the source application exits. This is the same
+role tools like wl-clip-persist fill on other compositors.
+.PP
+Text only:
+.BR text/plain ,
+.BR text/plain;charset=utf-8 ,
+.BR UTF8_STRING ,
+.BR STRING .
+.SH SEE ALSO
+.BR kumde (1)
