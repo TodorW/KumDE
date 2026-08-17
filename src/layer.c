@@ -69,6 +69,25 @@ static void layer_map(struct wl_listener *listener, void *data)
         ls->wlr_layer_surface->output);
     if (output)
         recalculate_usable_area(ls->server, output);
+
+    /* zwlr_layer_surface_v1.set_keyboard_interactivity is just a client
+     * request -- nothing grants the surface actual keyboard focus unless
+     * the compositor does it explicitly. Without this, a client asking for
+     * exclusive keyboard interactivity (kumlauncher's search box, kumshot
+     * -r's Escape-to-cancel) renders and looks focused but every keystroke
+     * -- including arrow keys -- keeps going to whatever normal window had
+     * focus before it mapped. */
+    if (ls->wlr_layer_surface->current.keyboard_interactive !=
+            ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE) {
+        struct wlr_seat *seat = ls->server->seat;
+        struct wlr_surface *surface = ls->wlr_layer_surface->surface;
+        if (seat->keyboard_state.focused_surface != surface) {
+            struct wlr_keyboard *kb = wlr_seat_get_keyboard(seat);
+            wlr_seat_keyboard_notify_enter(seat, surface,
+                kb ? kb->keycodes : NULL, kb ? kb->num_keycodes : 0,
+                kb ? &kb->modifiers : NULL);
+        }
+    }
 }
 
 static void layer_unmap(struct wl_listener *listener, void *data)
@@ -78,6 +97,10 @@ static void layer_unmap(struct wl_listener *listener, void *data)
         ls->wlr_layer_surface->output);
     if (output)
         recalculate_usable_area(ls->server, output);
+
+    struct wlr_seat *seat = ls->server->seat;
+    if (seat->keyboard_state.focused_surface == ls->wlr_layer_surface->surface)
+        wlr_seat_keyboard_clear_focus(seat);
 }
 
 static void layer_commit(struct wl_listener *listener, void *data)
