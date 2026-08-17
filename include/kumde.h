@@ -8,6 +8,7 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_data_device.h>
+#include <wlr/types/wlr_idle_notify_v1.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output.h>
@@ -97,6 +98,7 @@ struct kum_server {
     struct wlr_cursor               *cursor;
     struct wlr_xcursor_manager      *cursor_mgr;
     struct wlr_seat                 *seat;
+    struct wlr_idle_notifier_v1     *idle_notifier;
 
     struct wl_list  outputs;
     struct wl_list  toplevels;

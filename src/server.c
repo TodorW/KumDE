@@ -103,6 +103,7 @@ static void server_setup_globals(struct kum_server *server)
     wlr_screencopy_manager_v1_create(server->display);
     wlr_server_decoration_manager_create(server->display);
     wlr_xdg_decoration_manager_v1_create(server->display);
+    server->idle_notifier = wlr_idle_notifier_v1_create(server->display);
 }
 
 static void server_setup_outputs(struct kum_server *server)

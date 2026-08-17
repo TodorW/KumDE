@@ -16,6 +16,8 @@ static void keyboard_key(struct wl_listener *listener, void *data)
     struct kum_server   *server = kb->server;
     struct wlr_keyboard_key_event *ev = data;
 
+    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+
     uint32_t keycode = ev->keycode + 8;
     const xkb_keysym_t *syms;
     int nsyms = xkb_state_key_get_syms(
@@ -154,6 +156,8 @@ static enum wlr_edges edges_at_point(struct kum_toplevel *tl,
 
 static void process_cursor_motion(struct kum_server *server, uint32_t time)
 {
+    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+
     struct kum_toplevel *grabbed = NULL;
     struct kum_toplevel *tl;
     wl_list_for_each(tl, &server->toplevels, link) {
@@ -309,6 +313,8 @@ void kum_cursor_button(struct wl_listener *listener, void *data)
     struct kum_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *ev = data;
 
+    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+
     wlr_seat_pointer_notify_button(server->seat,
         ev->time_msec, ev->button, ev->state);
 
@@ -344,6 +350,7 @@ void kum_cursor_axis(struct wl_listener *listener, void *data)
 {
     struct kum_server *server = wl_container_of(listener, server, cursor_axis);
     struct wlr_pointer_axis_event *ev = data;
+    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     wlr_seat_pointer_notify_axis(server->seat, ev->time_msec,
         ev->orientation, ev->delta, ev->delta_discrete,
         ev->source, ev->relative_direction);
