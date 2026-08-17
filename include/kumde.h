@@ -231,6 +231,9 @@ struct kum_xwayland_surface {
     struct wlr_box                saved_geom;
     int                           last_width;
     int                           last_height;
+    bool                          associated;
+    struct wl_listener            associate;
+    struct wl_listener            dissociate;
     struct wl_listener            map;
     struct wl_listener            unmap;
     struct wl_listener            commit;

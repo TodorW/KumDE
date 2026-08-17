@@ -92,9 +92,13 @@ static void xwayland_surface_destroy(struct wl_listener *listener, void *data)
     kum_xwayland_shadow_destroy(xs);
     kum_xwayland_corners_destroy(xs);
 
-    wl_list_remove(&xs->map.link);
-    wl_list_remove(&xs->unmap.link);
-    wl_list_remove(&xs->commit.link);
+    if (xs->associated) {
+        wl_list_remove(&xs->map.link);
+        wl_list_remove(&xs->unmap.link);
+        wl_list_remove(&xs->commit.link);
+    }
+    wl_list_remove(&xs->associate.link);
+    wl_list_remove(&xs->dissociate.link);
     wl_list_remove(&xs->destroy.link);
     wl_list_remove(&xs->request_move.link);
     wl_list_remove(&xs->request_resize.link);
@@ -280,6 +284,43 @@ void kum_focus_xwayland_surface(struct kum_xwayland_surface *xs)
             kb->keycodes, kb->num_keycodes, &kb->modifiers);
 }
 
+static void xwayland_surface_associate(struct wl_listener *listener,
+    void *data)
+{
+    struct kum_xwayland_surface *xs =
+        wl_container_of(listener, xs, associate);
+    struct wlr_xwayland_surface *wlr_xs = xs->xwayland_surface;
+
+    struct wlr_scene_surface *scene_surface =
+        wlr_scene_surface_create(xs->scene_tree, wlr_xs->surface);
+    (void)scene_surface;
+
+    xs->map.notify    = xwayland_surface_map;
+    xs->unmap.notify  = xwayland_surface_unmap;
+    xs->commit.notify = xwayland_surface_commit;
+
+    wl_signal_add(&wlr_xs->surface->events.map,    &xs->map);
+    wl_signal_add(&wlr_xs->surface->events.unmap,  &xs->unmap);
+    wl_signal_add(&wlr_xs->surface->events.commit, &xs->commit);
+
+    xs->associated = true;
+}
+
+static void xwayland_surface_dissociate(struct wl_listener *listener,
+    void *data)
+{
+    struct kum_xwayland_surface *xs =
+        wl_container_of(listener, xs, dissociate);
+
+    if (!xs->associated)
+        return;
+
+    wl_list_remove(&xs->map.link);
+    wl_list_remove(&xs->unmap.link);
+    wl_list_remove(&xs->commit.link);
+    xs->associated = false;
+}
+
 static void handle_new_xwayland_surface(struct wl_listener *listener,
     void *data)
 {
@@ -301,13 +342,13 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
     xs->scene_tree->node.data = xs;
     wlr_xs->data              = xs;
 
-    struct wlr_scene_surface *scene_surface =
-        wlr_scene_surface_create(xs->scene_tree, wlr_xs->surface);
-    (void)scene_surface;
-
-    xs->map.notify               = xwayland_surface_map;
-    xs->unmap.notify             = xwayland_surface_unmap;
-    xs->commit.notify            = xwayland_surface_commit;
+    /* wlr_xs->surface is NULL until the associate event fires (it becomes
+     * invalid again on dissociate) -- creating the scene surface or
+     * touching surface->events here segfaults deep inside wlroots on the
+     * very first X11 window, confirmed live via coredumpctl. Defer
+     * anything surface-dependent to xwayland_surface_associate(). */
+    xs->associate.notify   = xwayland_surface_associate;
+    xs->dissociate.notify  = xwayland_surface_dissociate;
     xs->destroy.notify           = xwayland_surface_destroy;
     xs->request_move.notify      = xwayland_request_move;
     xs->request_resize.notify    = xwayland_request_resize;
@@ -315,9 +356,8 @@ static void handle_new_xwayland_surface(struct wl_listener *listener,
     xs->request_fullscreen.notify = xwayland_request_fullscreen;
     xs->set_title.notify         = xwayland_set_title;
 
-    wl_signal_add(&wlr_xs->surface->events.map,    &xs->map);
-    wl_signal_add(&wlr_xs->surface->events.unmap,  &xs->unmap);
-    wl_signal_add(&wlr_xs->surface->events.commit, &xs->commit);
+    wl_signal_add(&wlr_xs->events.associate,       &xs->associate);
+    wl_signal_add(&wlr_xs->events.dissociate,      &xs->dissociate);
     wl_signal_add(&wlr_xs->events.destroy,         &xs->destroy);
     wl_signal_add(&wlr_xs->events.request_move,    &xs->request_move);
     wl_signal_add(&wlr_xs->events.request_resize,  &xs->request_resize);
