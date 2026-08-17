@@ -193,9 +193,18 @@ static void toplevel_commit(struct wl_listener *listener, void *data)
      * the "initial commit" -- the compositor must respond with the first
      * configure or a spec-compliant client waits forever and never attaches
      * a buffer, so the toplevel never maps. Without this every xdg-shell
-     * client hangs invisibly on startup. */
+     * client hangs invisibly on startup.
+     *
+     * Use the toplevel-specific setter rather than calling
+     * wlr_xdg_surface_schedule_configure() directly: the latter asserts
+     * surface->initialized, which (unlike wlr_layer_surface_v1) is not yet
+     * true for an xdg_toplevel by the time this commit listener runs --
+     * confirmed live, it aborted the compositor on the client's very next
+     * commit. wlr_xdg_toplevel_set_size() is the toplevel-role path that
+     * populates pending state before scheduling, matching the canonical
+     * tinywl idiom (0,0 lets the client pick its own initial size). */
     if (tl->xdg_toplevel->base->initial_commit)
-        wlr_xdg_surface_schedule_configure(tl->xdg_toplevel->base);
+        wlr_xdg_toplevel_set_size(tl->xdg_toplevel, 0, 0);
 
     if (ws->layout == LAYOUT_TILE && !tl->floating)
         kum_border_update(tl, tl == tl->server->focused);
