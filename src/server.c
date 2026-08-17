@@ -229,6 +229,20 @@ void kum_server_init(struct kum_server *server)
     if (!server->scene)
         goto fatal;
 
+    /* Fixed bottom-to-top z-order, created once up front: background/bottom
+     * layer-shell surfaces must always render below normal windows, and
+     * top/overlay layer-shell surfaces must always render above them,
+     * regardless of client connection order. Without dedicated per-layer
+     * trees here, everything ends up a flat sibling ordered purely by
+     * creation time -- confirmed live, a wallpaper client started after the
+     * terminal was already mapped rendered on top of it, hiding it
+     * entirely. */
+    server->layer_bg_tree     = wlr_scene_tree_create(&server->scene->tree);
+    server->layer_bottom_tree = wlr_scene_tree_create(&server->scene->tree);
+    server->normal_tree       = wlr_scene_tree_create(&server->scene->tree);
+    server->layer_top_tree    = wlr_scene_tree_create(&server->scene->tree);
+    server->layer_overlay_tree = wlr_scene_tree_create(&server->scene->tree);
+
     wl_list_init(&server->toplevels);
 #ifdef KUM_XWAYLAND
     /* Initialized unconditionally (not just when cfg.xwayland is true and

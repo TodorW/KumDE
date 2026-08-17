@@ -145,11 +145,20 @@ void kum_new_layer_surface(struct wl_listener *listener, void *data)
         }
     }
 
+    struct wlr_scene_tree *layer_tree;
+    switch (wlr_ls->pending.layer) {
+    case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND: layer_tree = server->layer_bg_tree;     break;
+    case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:     layer_tree = server->layer_bottom_tree; break;
+    case ZWLR_LAYER_SHELL_V1_LAYER_TOP:        layer_tree = server->layer_top_tree;    break;
+    case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:    layer_tree = server->layer_overlay_tree; break;
+    default:                                   layer_tree = server->layer_top_tree;    break;
+    }
+
     struct kum_layer_surface *ls = calloc(1, sizeof(*ls));
     ls->server            = server;
     ls->wlr_layer_surface = wlr_ls;
     ls->scene_layer       = wlr_scene_layer_surface_v1_create(
-        &server->scene->tree, wlr_ls);
+        layer_tree, wlr_ls);
 
     ls->map.notify     = layer_map;
     ls->unmap.notify   = layer_unmap;

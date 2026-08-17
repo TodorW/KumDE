@@ -8,7 +8,7 @@ void kum_workspace_init(struct kum_server *server)
         server->workspaces[i].index      = i;
         server->workspaces[i].layout     = LAYOUT_FLOATING;
         server->workspaces[i].scene_tree =
-            wlr_scene_tree_create(&server->scene->tree);
+            wlr_scene_tree_create(server->normal_tree);
         wl_list_init(&server->workspaces[i].toplevels);
         wlr_scene_node_set_enabled(
             &server->workspaces[i].scene_tree->node, false);

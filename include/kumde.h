@@ -103,6 +103,16 @@ struct kum_server {
     struct wlr_idle_notifier_v1     *idle_notifier;
     struct wlr_session_lock_manager_v1 *session_lock_manager;
     struct wlr_scene_tree           *lock_tree;
+    /* Bottom-to-top z-order of everything the compositor puts in the scene
+     * graph, matching the wlr-layer-shell layer semantics: a background
+     * wallpaper must always render (and hit-test) below every window, and
+     * an overlay surface (launcher, notification) must always render above
+     * them, regardless of the order clients happened to connect in. */
+    struct wlr_scene_tree           *layer_bg_tree;
+    struct wlr_scene_tree           *layer_bottom_tree;
+    struct wlr_scene_tree           *normal_tree;
+    struct wlr_scene_tree           *layer_top_tree;
+    struct wlr_scene_tree           *layer_overlay_tree;
     struct wlr_session_lock_v1      *active_lock;
     bool                             locked;
     struct wl_listener               new_session_lock;
