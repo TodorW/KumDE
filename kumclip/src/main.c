@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <wayland-client-protocol.h>
 
+#include "wlr-data-control-unstable-v1-client-protocol.h"
+
 #define CLIP_MAX      (32 * 1024 * 1024)
 #define MIME_TEXT     "text/plain;charset=utf-8"
 #define MIME_ALT      "text/plain"
@@ -20,7 +22,7 @@
 typedef struct { char *data; size_t len; char mime[128]; } clip_t;
 
 typedef struct {
-    struct wl_data_offer *offer;
+    struct zwlr_data_control_offer_v1 *offer;
     bool has_text;
     char image_mime[32];
 } offer_state_t;
@@ -32,12 +34,12 @@ static bool mime_is_text(const char *m)
 }
 
 static struct {
-    struct wl_display                 *display;
-    struct wl_registry                *registry;
-    struct wl_seat                    *seat;
-    struct wl_data_device_manager     *ddm;
-    struct wl_data_device             *dd;
-    struct wl_data_source             *source;
+    struct wl_display                     *display;
+    struct wl_registry                    *registry;
+    struct wl_seat                        *seat;
+    struct zwlr_data_control_manager_v1   *ddm;
+    struct zwlr_data_control_device_v1    *dd;
+    struct zwlr_data_control_source_v1    *source;
     clip_t   held;
     bool     running;
     bool     is_owner;
@@ -46,12 +48,12 @@ static struct {
 static void clip_free(clip_t *c)
 { free(c->data); c->data = NULL; c->len = 0; c->mime[0] = '\0'; }
 
-static bool clip_read(struct wl_data_offer *offer, const char *mime,
-    clip_t *out)
+static bool clip_read(struct zwlr_data_control_offer_v1 *offer,
+    const char *mime, clip_t *out)
 {
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) < 0) return false;
-    wl_data_offer_receive(offer, mime, fds[1]);
+    zwlr_data_control_offer_v1_receive(offer, mime, fds[1]);
     close(fds[1]);
     wl_display_flush(app.display);
 
@@ -71,7 +73,7 @@ static bool clip_read(struct wl_data_offer *offer, const char *mime,
     return true;
 }
 
-static void source_send(void *data, struct wl_data_source *src,
+static void source_send(void *data, struct zwlr_data_control_source_v1 *src,
     const char *mime, int32_t fd)
 {
     clip_t *c = data;
@@ -85,45 +87,41 @@ static void source_send(void *data, struct wl_data_source *src,
     close(fd);
 }
 
-static void source_cancelled(void *data, struct wl_data_source *src)
+static void source_cancelled(void *data,
+    struct zwlr_data_control_source_v1 *src)
 {
     app.is_owner = false;
-    wl_data_source_destroy(src);
+    zwlr_data_control_source_v1_destroy(src);
     if (app.source == src) app.source = NULL;
 }
 
-static void src_target(void *d, struct wl_data_source *s, const char *m) {}
-static void src_dnd_drop(void *d, struct wl_data_source *s) {}
-static void src_dnd_finished(void *d, struct wl_data_source *s) {}
-static void src_action(void *d, struct wl_data_source *s, uint32_t a) {}
-
-static const struct wl_data_source_listener source_listener = {
-    .target = src_target, .send = source_send,
-    .cancelled = source_cancelled, .dnd_drop_performed = src_dnd_drop,
-    .dnd_finished = src_dnd_finished, .action = src_action,
+static const struct zwlr_data_control_source_v1_listener source_listener = {
+    .send = source_send, .cancelled = source_cancelled,
 };
 
 static void claim(void)
 {
     if (app.is_owner || !app.held.data || !app.dd) return;
-    if (app.source) wl_data_source_destroy(app.source);
-    app.source = wl_data_device_manager_create_data_source(app.ddm);
-    wl_data_source_add_listener(app.source, &source_listener, &app.held);
+    if (app.source) zwlr_data_control_source_v1_destroy(app.source);
+    app.source = zwlr_data_control_manager_v1_create_data_source(app.ddm);
+    zwlr_data_control_source_v1_add_listener(app.source, &source_listener,
+        &app.held);
     if (mime_is_text(app.held.mime)) {
-        wl_data_source_offer(app.source, MIME_TEXT);
-        wl_data_source_offer(app.source, MIME_ALT);
-        wl_data_source_offer(app.source, MIME_UTF8);
-        wl_data_source_offer(app.source, MIME_STRING);
+        zwlr_data_control_source_v1_offer(app.source, MIME_TEXT);
+        zwlr_data_control_source_v1_offer(app.source, MIME_ALT);
+        zwlr_data_control_source_v1_offer(app.source, MIME_UTF8);
+        zwlr_data_control_source_v1_offer(app.source, MIME_STRING);
     } else {
-        wl_data_source_offer(app.source, app.held.mime);
+        zwlr_data_control_source_v1_offer(app.source, app.held.mime);
     }
-    wl_data_device_set_selection(app.dd, app.source, 0);
+    zwlr_data_control_device_v1_set_selection(app.dd, app.source);
     app.is_owner = true;
 }
 
 static offer_state_t pending;
 
-static void offer_mime(void *data, struct wl_data_offer *o, const char *mime)
+static void offer_mime(void *data, struct zwlr_data_control_offer_v1 *o,
+    const char *mime)
 {
     offer_state_t *p = data;
     if (mime_is_text(mime)) {
@@ -134,31 +132,28 @@ static void offer_mime(void *data, struct wl_data_offer *o, const char *mime)
     }
 }
 
-static void offer_src_actions(void *d, struct wl_data_offer *o, uint32_t a) {}
-static void offer_action(void *d, struct wl_data_offer *o, uint32_t a) {}
-
-static const struct wl_data_offer_listener offer_listener = {
-    .offer = offer_mime, .source_actions = offer_src_actions,
-    .action = offer_action,
+static const struct zwlr_data_control_offer_v1_listener offer_listener = {
+    .offer = offer_mime,
 };
 
-static void dd_offer(void *d, struct wl_data_device *dd,
-    struct wl_data_offer *offer)
+static void dd_data_offer(void *d, struct zwlr_data_control_device_v1 *dd,
+    struct zwlr_data_control_offer_v1 *offer)
 {
-    if (pending.offer) wl_data_offer_destroy(pending.offer);
+    if (pending.offer) zwlr_data_control_offer_v1_destroy(pending.offer);
     pending.offer = offer;
     pending.has_text = false;
     pending.image_mime[0] = '\0';
-    wl_data_offer_add_listener(offer, &offer_listener, &pending);
+    zwlr_data_control_offer_v1_add_listener(offer, &offer_listener, &pending);
 }
 
-static void dd_selection(void *d, struct wl_data_device *dd,
-    struct wl_data_offer *offer)
+static void dd_selection(void *d, struct zwlr_data_control_device_v1 *dd,
+    struct zwlr_data_control_offer_v1 *offer)
 {
     if (app.is_owner) return;
     if (!offer) return;
     if (!pending.has_text && !pending.image_mime[0]) {
-        wl_data_offer_destroy(offer); pending.offer = NULL; return;
+        zwlr_data_control_offer_v1_destroy(offer); pending.offer = NULL;
+        return;
     }
     clip_t fresh = {0};
     bool ok = false;
@@ -170,30 +165,30 @@ static void dd_selection(void *d, struct wl_data_device *dd,
     }
     if (!ok && pending.image_mime[0])
         ok = clip_read(offer, pending.image_mime, &fresh);
-    wl_data_offer_destroy(offer); pending.offer = NULL;
+    zwlr_data_control_offer_v1_destroy(offer); pending.offer = NULL;
     if (!ok) return;
     clip_free(&app.held); app.held = fresh;
     claim();
 }
 
-static void dd_enter(void *d, struct wl_data_device *dd, uint32_t s,
-    struct wl_surface *surf, wl_fixed_t x, wl_fixed_t y,
-    struct wl_data_offer *o) {}
-static void dd_leave(void *d, struct wl_data_device *dd) {}
-static void dd_motion(void *d, struct wl_data_device *dd,
-    uint32_t t, wl_fixed_t x, wl_fixed_t y) {}
-static void dd_drop(void *d, struct wl_data_device *dd) {}
+static void dd_finished(void *d, struct zwlr_data_control_device_v1 *dd) {}
+static void dd_primary_selection(void *d,
+    struct zwlr_data_control_device_v1 *dd,
+    struct zwlr_data_control_offer_v1 *offer)
+{
+    if (offer) zwlr_data_control_offer_v1_destroy(offer);
+}
 
-static const struct wl_data_device_listener dd_listener = {
-    .data_offer = dd_offer, .enter = dd_enter, .leave = dd_leave,
-    .motion = dd_motion, .drop = dd_drop, .selection = dd_selection,
+static const struct zwlr_data_control_device_v1_listener dd_listener = {
+    .data_offer = dd_data_offer, .selection = dd_selection,
+    .finished = dd_finished, .primary_selection = dd_primary_selection,
 };
 
 static void seat_caps(void *d, struct wl_seat *seat, uint32_t caps)
 {
     if (!app.dd && app.ddm) {
-        app.dd = wl_data_device_manager_get_data_device(app.ddm, seat);
-        wl_data_device_add_listener(app.dd, &dd_listener, NULL);
+        app.dd = zwlr_data_control_manager_v1_get_data_device(app.ddm, seat);
+        zwlr_data_control_device_v1_add_listener(app.dd, &dd_listener, NULL);
     }
 }
 static void seat_name(void *d, struct wl_seat *s, const char *n) {}
@@ -207,9 +202,9 @@ static void reg_global(void *d, struct wl_registry *reg,
     if (!strcmp(iface, wl_seat_interface.name)) {
         app.seat = wl_registry_bind(reg, name, &wl_seat_interface, 7);
         wl_seat_add_listener(app.seat, &seat_listener, NULL);
-    } else if (!strcmp(iface, wl_data_device_manager_interface.name)) {
+    } else if (!strcmp(iface, zwlr_data_control_manager_v1_interface.name)) {
         app.ddm = wl_registry_bind(reg, name,
-            &wl_data_device_manager_interface, 3);
+            &zwlr_data_control_manager_v1_interface, 2);
     }
 }
 static void reg_remove(void *d, struct wl_registry *r, uint32_t n) {}
@@ -233,7 +228,8 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(app.display);
 
     if (!app.seat || !app.ddm) {
-        fprintf(stderr, "kumclip: missing seat or data device manager\n");
+        fprintf(stderr,
+            "kumclip: missing seat or wlr-data-control-unstable-v1\n");
         return 1;
     }
 
